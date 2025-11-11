@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PhotoBooth</title>
+    <style>
+        /* General Setup */
+        :root {
+            --brand-color: #4a90e2;
+            --dark-bg: #1a1a1a;
+            --light-text: #f0f0f0;
+            --shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overscroll-behavior: none; /* Prevents pull-to-refresh */
+        }
+
+        /* View Management */
+        .view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Hidden by default */
+            box-sizing: border-box;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 1. Template Upload View */
+        #template-view {
+            flex-direction: column;
+            padding: 20px;
+            text-align: center;
+        }
+        #template-view h1 {
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        #template-view p {
+            font-size: 1.1em;
+            color: #aaa;
+            max-width: 400px;
+            margin-top: 0;
+        }
+        
+        /* Custom File Input */
+        .file-upload-label {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: var(--brand-color);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            box-shadow: var(--shadow);
+        }
+        .file-upload-label:hover {
+            background-color: #357ABD;
+        }
+        #template-input {
+            display: none;
+        }
+        #file-name {
+            margin-top: 15px;
+            color: #ccc;
+            font-style: italic;
+        }
+        
+        /* Dropdown Styling */
+        #camera-select {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: var(--light-text);
+            font-size: 1em;
+            width: 250px;
+            box-shadow: var(--shadow);
+            appearance: none; /* Remove default styling */
+        }
+
+        /* 1.5 Template Mapping View */
+        #mapping-view {
+            flex-direction: column;
+            padding: 20px;
+            text-align: center;
+        }
+        #mapping-canvas {
+            border: 2px dashed #ccc;
+            cursor: crosshair;
+            max-width: 95vw;
+            max-height: 75vh; /* Adjusted for more control space */
+            object-fit: contain;
+            box-shadow: var(--shadow);
+        }
+        .mapping-text {
+            margin: 10px 0;
+            font-size: 1.2em;
+            font-weight: 500;
+            color: #ffcc00; /* Highlight important text */
+        }
+        
+        /* Adjustment Controls - Now just readouts */
+        .adjustment-readout {
+            display: flex;
+            gap: 20px;
+            font-size: 1em;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+        /* New class for conditionally showing readouts */
+        .adjustment-readout.hidden {
+            display: none;
+        }
+
+        /* 2. Camera View */
+        #camera-view {
+            flex-direction: column;
+            justify-content: flex-end; /* Aligns button to bottom */
+            align-items: center;
+            padding-bottom: 30px; /* Space for the button */
+            box-sizing: border-box;
+        }
+
+        #video-preview {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Shows full feed, maintains aspect, adds bars */
+            z-index: 1; /* Behind UI */
+            transform: scaleX(-1); /* Mirror preview */
+        }
+        
+        /* NEW: Close Camera Button */
+        #close-camera-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 21; /* CRITICAL: Ensure it's above the countdown overlay (z-index 20) */
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: background-color 0.2s;
+        }
+        #close-camera-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+        #close-camera-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* NEW: Crop Frame Overlay */
+        #crop-frame-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /* We set the width/height dynamically in JS based on the calculated video display size */
+            display: none; 
+            pointer-events: none; 
+            z-index: 5;
+            background-color: transparent;
+            /* Creates a dark mask around the central area defined by width/height */
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); 
+            transition: all 0.3s ease;
+        }
+        
+        #capture-btn {
+            position: relative; /* 'relative' works with flex parent */
+            z-index: 10;
+            width: 70px;
+            height: 70px;
+            background-color: rgba(255, 255, 255, 0.4);
+            border: 4px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            transition: background-color 0.2s;
+        }
+        #capture-btn:hover {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Inner circle for capture button */
+        #capture-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        #photo-counter-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 1em;
+            font-weight: 600;
+            z-index: 21; /* CRITICAL: Ensure it's above the countdown overlay */
+        }
+
+        #countdown-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            font-size: 25vmin;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 20px rgba(0,0,0,0.7);
+            z-index: 20;
+            opacity: 0;
+        }
+
+        /* Countdown Animation */
+        #countdown-overlay.animate {
+            display: flex;
+            animation: countdown-pulse 1s ease-in-out forwards;
+        }
+        @keyframes countdown-pulse {
+            0% { opacity: 0; transform: scale(1.5); }
+            20% { opacity: 1; transform: scale(1); }
+            80% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.8); }
+        }
+
+        /* 3. Preview View */
+        #preview-view {
+            flex-direction: column;
+            padding: 10px; /* Reduced padding */
+            gap: 10px; /* Reduced gap */
+            box-sizing: border-box;
+            /* FIX: Ensure preview view uses full screen */
+            width: 100%; 
+            height: 100%;
+            overflow: hidden; /* CRITICAL: Prevent scrolling */
+        }
+
+        /* New overlay for 2-second preview */
+        #photo-preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Hide by default */
+            object-fit: contain; /* Show the whole 16:9 photo */
+            background-color: #000; /* Black background */
+            z-index: 30; /* On top of everything */
+        }
+
+        #merge-canvas {
+            /* FIX: Increased subtraction to ensure header and buttons fit without clipping */
+            max-width: 95vw; 
+            max-height: calc(100vh - 150px); 
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            /* Ensure the canvas element uses fluid dimensions */
+            width: auto;
+            height: auto;
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px; /* Added margin here */
+        }
+
+        .btn {
+            padding: 12px 25px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            box-shadow: var(--shadow);
+        }
+        .btn:hover {
+            opacity: 0.85;
+        }
+        /* NEW: Disabled state for buttons */
+        .btn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        #retake-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        #remap-btn, #reset-mapping-btn { /* Apply red style to remap/reset */
+            background-color: #dc3545;
+            color: white;
+        }
+        #change-template-btn, #undo-btn, #redo-btn { /* Apply grey style to secondary actions */
+            background-color: #6c757d;
+            color: white;
+        }
+        #save-btn, #start-mapped-btn, #confirm-adjustment-btn { /* Main action color */
+            background-color: var(--brand-color);
+            color: white;
+        }
+        #start-btn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- View 1: Template Upload -->
+    <div id="template-view" class="view">
+        <h1>Welcome to the PhotoBooth!</h1>
+        
+        <select id="camera-select">
+            <option value="">Loading cameras...</option>
+        </select>
+        
+        <p style="margin-top: 20px;">Please upload your **PNG template** to start. The transparent areas will be filled by photos.</p>
+        
+        <label for="template-input" class="file-upload-label">
+            Select Template (.png)
+        </label>
+        <input type="file" id="template-input" accept="image/png">
+        
+        <div id="file-name">No file selected.</div>
+
+        <!-- NEW: Photo Count Selector -->
+        <label for="photo-count-select" style="margin-top: 20px; display: block; color: #ccc;">Number of Photos:</label>
+        <select id="photo-count-select" style="margin-top: 5px; padding: 10px; border-radius: 4px; border: 1px solid #444; background-color: #2a2a2a; color: var(--light-text); font-size: 1em; width: 250px; box-shadow: var(--shadow); appearance: none;">
+            <option value="1">1 Photo</option>
+            <option value="2">2 Photos</option>
+            <option value="3">3 Photos</option>
+            <option value="4" selected>4 Photos</option>
+            <option value="5">5 Photos</option>
+            <option value="6">6 Photos</option>
+            <option value="7">7 Photos</option>
+            <option value="8">8 Photos</option>
+            <option value="9">9 Photos</option>
+            <option value="10">10 Photos</option>
+        </select>
+        
+        <button id="start-btn" class="btn" style="margin-top: 20px;" disabled>
+            Start With Template (Requires Mapping)
+        </button>
+        <button id="start-no-template-btn" class="btn" style="margin-top: 10px; background-color: #6c757d;">
+            Start without Template (Vertical Strip)
+        </button>
+    </div>
+
+    <!-- View 1.5: Template Mapping -->
+    <div id="mapping-view" class="view">
+        <h2>ICT Photo Studio</h2>
+        <p class="mapping-text" id="mapping-instructions">Click **TOP-LEFT** corner for Photo 1.</p>
+        
+        <!-- ADJUSTMENT READOUTS MOVED HERE FOR BETTER LAYOUT -->
+        <div id="adjustment-readout" class="adjustment-readout hidden">
+            <span id="rotation-value-label">Rotation: 0°</span>
+            <span id="scale-value-label">Scale: 100%</span>
+        </div>
+        
+        <!-- NEW: Added tabindex to allow keydown events. Focus is applied via JS. -->
+        <canvas id="mapping-canvas" tabindex="0"></canvas>
+        
+        <div class="button-group">
+            <!-- CONFIRM BUTTON is now part of the main group, visibility controlled by JS -->
+            <button id="confirm-adjustment-btn" class="btn" style="display: none;">Confirm Slot (Enter)</button>
+
+            <button id="change-template-btn" class="btn">Change Template</button> 
+            <button id="reset-mapping-btn" class="btn">Redo Current Map</button>
+            <!-- NEW: Undo and Redo buttons -->
+            <button id="undo-btn" class="btn">Undo</button>
+            <button id="redo-btn" class="btn">Redo</button>
+            <button id="start-mapped-btn" class="btn" style="display: none;">Start PhotoBooth</button>
+        </div>
+    </div>
+
+    <!-- View 2: Camera -->
+    <div id="camera-view" class="view" tabindex="0">
+        <!-- NEW: Close Camera Button -->
+        <button id="close-camera-btn" title="Exit to settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        
+        <video id="video-preview" autoplay playsinline muted></video>
+        <div id="crop-frame-overlay"></div> <!-- NEW: Visual framing overlay -->
+        <img id="photo-preview-overlay" /> 
+        <div id="photo-counter-overlay">0 / 4</div>
+        <div id="countdown-overlay">10</div>
+        <button id="capture-btn"></button>
+    </div>
+
+    <!-- View 3: Final Preview -->
+    <div id="preview-view" class="view">
+        <h2>Your Photo Strip!</h2>
+        <canvas id="merge-canvas"></canvas>
+        <div class="button-group">
+            <button id="retake-btn" class="btn">Retake Photos</button>
+            <button id="remap-btn" class="btn" style="display: none;">Remap Template</button> 
+            <button id="save-btn" class="btn">Save Photo</button>
+        </div>
+    </div>
+
+    <!-- Hidden canvas for capturing frames --><canvas id="capture-canvas" style="display: none;"></canvas>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const views = {
+                template: document.getElementById('template-view'),
+                mapping: document.getElementById('mapping-view'), 
+                camera: document.getElementById('camera-view'),
+                preview: document.getElementById('preview-view')
+            };
+            
+            // Template View
+            const templateInput = document.getElementById('template-input');
+            const fileNameEl = document.getElementById('file-name');
+            const startBtn = document.getElementById('start-btn');
+            const startNoTemplateBtn = document.getElementById('start-no-template-btn');
+            const cameraSelect = document.getElementById('camera-select'); 
+            const photoCountSelect = document.getElementById('photo-count-select'); 
+
+            // Mapping View
+            const mappingCanvas = document.getElementById('mapping-canvas');
+            const mappingCtx = mappingCanvas.getContext('2d');
+            const mappingInstructions = document.getElementById('mapping-instructions');
+            const resetMappingBtn = document.getElementById('reset-mapping-btn');
+            const changeTemplateBtn = document.getElementById('change-template-btn'); 
+            const startMappedBtn = document.getElementById('start-mapped-btn');
+            
+            // NEW: Undo/Redo buttons
+            const undoBtn = document.getElementById('undo-btn');
+            const redoBtn = document.getElementById('redo-btn');
+            
+            // NEW: Readout and Confirm elements
+            const adjustmentReadout = document.getElementById('adjustment-readout');
+            const rotationValueLabel = document.getElementById('rotation-value-label');
+            const scaleValueLabel = document.getElementById('scale-value-label');
+            const confirmAdjustmentBtn = document.getElementById('confirm-adjustment-btn');
+            
+            // Camera View
+            const cameraView = document.getElementById('camera-view'); // Added to reference the container
+            const videoEl = document.getElementById('video-preview');
+            const cropFrameOverlay = document.getElementById('crop-frame-overlay'); 
+            const captureBtn = document.getElementById('capture-btn');
+            const photoCounterEl = document.getElementById('photo-counter-overlay');
+            const countdownEl = document.getElementById('countdown-overlay');
+            const closeCameraBtn = document.getElementById('close-camera-btn'); // NEW
+
+            // Preview View
+            const mergeCanvas = document.getElementById('merge-canvas');
+            const mergeCtx = mergeCanvas.getContext('2d');
+            const retakeBtn = document.getElementById('retake-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const remapBtn = document.getElementById('remap-btn'); 
+
+            // Hidden Capture Canvas
+            const captureCanvas = document.getElementById('capture-canvas');
+            const captureCtx = captureCanvas.getContext('2d');
+
+            // --- State Variables ---
+            let stream = null;
+            let templateImage = new Image();
+            let useTemplate = false;
+            let capturedPhotos = [];
+            let photoCount = 0;
+            let countdownInterval = null;
+            const TARGET_ASPECT_RATIO = 16 / 9; // Target aspect ratio for the video stream (usually wide)
+            const CAPTURE_DELAY_MS = 10000; 
+            let numPhotosToTake = 4; // This is immediately overwritten by the select element value on load
+
+            // Mapping State
+            let photoSlots = []; 
+            let undoStack = []; 
+            let mappingState = { 
+                photoIndex: 1, 
+                clickCount: 0, // 0=wait P1, 1=wait P2, 2=wait adjustment/drag
+                startX: 0, startY: 0, 
+                tempX: 0, tempY: 0, 
+                tempSlot: null, // Holds { centerX, centerY, width, height, rotation, scale }
+                isDragging: false, 
+                dragOffsetX: 0,
+                dragOffsetY: 0,
+                // NEW: State for touch gestures
+                initialPinchDistance: null,
+                initialPinchAngle: null,
+                baseScale: 1,
+                baseRotation: 0
+            };
+
+            // --- Helper Functions ---
+            function showView(viewName) {
+                Object.values(views).forEach(v => v.style.display = 'none');
+                if (views[viewName]) {
+                    views[viewName].style.display = 'flex';
+                }
+                
+                // CRITICAL: Ensure Camera view is focused when active for keyboard events
+                if (viewName === 'camera') {
+                    cameraView.focus();
+                }
+            }
+
+            async function enumerateCameras() {
+                cameraSelect.innerHTML = '<option value="">Loading cameras...</option>';
+                try {
+                    // Quick check for permissions first
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                    // Stop the temp stream immediately
+                    tempStream.getTracks().forEach(track => track.stop());
+
+                    cameraSelect.innerHTML = ''; 
+                    if (videoDevices.length === 0) {
+                        cameraSelect.innerHTML = '<option value="">No cameras found</option>';
+                    } else {
+                        videoDevices.forEach(device => {
+                            const option = document.createElement('option');
+                            option.value = device.deviceId;
+                            option.textContent = device.label || `Camera ${cameraSelect.options.length + 1}`;
+                            cameraSelect.appendChild(option);
+                        });
+                        if (videoDevices.length > 0) {
+                            cameraSelect.selectedIndex = 0;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error accessing camera:", err);
+                    cameraSelect.innerHTML = '<option value="">Camera access denied/failed</option>';
+                }
+            }
+
+            // --- 1. Template Upload Logic ---
+            templateInput.addEventListener('change', () => {
+                const file = templateInput.files[0];
+                if (file && file.type === 'image/png') {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        templateImage.src = e.target.result;
+                        templateImage.onload = () => {
+                            fileNameEl.textContent = file.name;
+                            startBtn.disabled = false;
+                        };
+                        templateImage.onerror = () => {
+                            fileNameEl.textContent = "Error: Could not load image.";
+                            startBtn.disabled = true;
+                        };
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    fileNameEl.textContent = "Please select a valid .png file.";
+                    startBtn.disabled = true;
+                }
+            });
+
+            // NEW: Listen for changes on the photo count select
+            photoCountSelect.addEventListener('change', () => {
+                numPhotosToTake = parseInt(photoCountSelect.value, 10);
+                // If user changes this while mapping, reset the mapping
+                if (views.mapping.style.display === 'flex') {
+                    setupMappingView(); 
+                }
+            });
+            
+            // Set initial value from the selector element
+            numPhotosToTake = parseInt(photoCountSelect.value, 10);
+
+
+            startBtn.addEventListener('click', () => {
+                useTemplate = true; 
+                setupMappingView(); 
+                showView('mapping');
+            });
+
+            startNoTemplateBtn.addEventListener('click', () => {
+                useTemplate = false; 
+                showView('camera');
+                startCamera();
+            });
+
+            // --- 1.5 Template Mapping Logic ---
+
+            function setupMappingView() {
+                photoSlots = [];
+                undoStack = []; // NEW: Clear undo stack
+                mappingState = { 
+                    photoIndex: 1, clickCount: 0, 
+                    startX: 0, startY: 0, tempX: 0, tempY: 0, 
+                    tempSlot: null, // Holds { centerX, centerY, width, height, rotation, scale }
+                    isDragging: false, 
+                    dragOffsetX: 0,
+                    dragOffsetY: 0,
+                    // NEW: Reset touch state
+                    initialPinchDistance: null, initialPinchAngle: null,
+                    baseScale: 1, baseRotation: 0
+                };
+                startMappedBtn.style.display = 'none';
+                confirmAdjustmentBtn.style.display = 'none'; // Ensure confirm is hidden
+                adjustmentReadout.classList.add('hidden'); // Ensure readout is hidden
+                mappingCanvas.style.cursor = 'crosshair'; 
+
+                // Set canvas size
+                const templateAspect = templateImage.width / templateImage.height;
+                const maxW = window.innerWidth * 0.95;
+                // Adjusted maxH to give more room for controls
+                const maxH = (window.innerHeight - 250); 
+
+                let displayW = maxW;
+                let displayH = maxW / templateAspect;
+
+                if (displayH > maxH || displayH < 100) { // Added min height check
+                    displayH = maxH;
+                    displayW = maxH * templateAspect;
+                }
+                
+                // Ensure canvas isn't wider than viewport
+                if (displayW > maxW) {
+                    displayW = maxW;
+                    displayH = maxW / templateAspect;
+                }
+
+                mappingCanvas.width = displayW;
+                mappingCanvas.height = displayH;
+                
+                mappingCtx.drawImage(templateImage, 0, 0, displayW, displayH);
+                updateMappingInstructions();
+                updateButtonStates(); 
+                
+                // FIX: Immediately focus the canvas for keyboard shortcuts
+                mappingCanvas.focus();
+            }
+
+            // NEW: Separate function to update button disabled states
+            function updateButtonStates() {
+                undoBtn.disabled = photoSlots.length === 0;
+                redoBtn.disabled = undoStack.length === 0;
+                startMappedBtn.style.display = (photoSlots.length === numPhotosToTake) ? 'block' : 'none'; 
+            }
+
+            function updateMappingInstructions() {
+                if (mappingState.photoIndex > numPhotosToTake) { 
+                    mappingInstructions.textContent = "Mapping Complete! Click 'Start PhotoBooth'.";
+                    startMappedBtn.style.display = 'block';
+                    mappingCanvas.style.cursor = 'default';
+                    confirmAdjustmentBtn.style.display = 'none';
+                    adjustmentReadout.classList.add('hidden');
+                    return;
+                }
+                
+                let step = "";
+                if (mappingState.clickCount === 0) {
+                    step = "Click **TOP-LEFT** corner.";
+                    mappingCanvas.style.cursor = 'crosshair';
+                    confirmAdjustmentBtn.style.display = 'none';
+                    adjustmentReadout.classList.add('hidden');
+                } else if (mappingState.clickCount === 1) {
+                    step = "Click **BOTTOM-RIGHT** corner. (ESC to cancel)";
+                    mappingCanvas.style.cursor = 'crosshair';
+                    confirmAdjustmentBtn.style.display = 'none';
+                    adjustmentReadout.classList.add('hidden');
+                } else if (mappingState.clickCount === 2) {
+                    // UPDATED instructions
+                    step = "Drag/Scroll to move/scale, SHIFT+Scroll to rotate. (ESC to cancel / ENTER to confirm)";
+                    mappingCanvas.style.cursor = 'move'; 
+                    confirmAdjustmentBtn.style.display = 'inline-block';
+                    adjustmentReadout.classList.remove('hidden');
+                }
+                
+                mappingInstructions.innerHTML = `Photo **${mappingState.photoIndex}/${numPhotosToTake}**: ${step}`; 
+            }
+
+            // NEW: Function to cancel the current in-progress selection
+            function cancelCurrentSelection() {
+                if (mappingState.clickCount === 1 || mappingState.clickCount === 2) {
+                    mappingState.clickCount = 0;
+                    mappingState.tempSlot = null;
+                    mappingState.isDragging = false;
+                    confirmAdjustmentBtn.style.display = 'none';
+                    adjustmentReadout.classList.add('hidden');
+                    updateMappingInstructions();
+                    drawCurrentMapping();
+                }
+            }
+
+            /**
+             * Helper function to draw a single rotated, scaled, transparent rectangle.
+             */
+            function drawRotatedRect(ctx, slot, scaleX, scaleY, color, label) {
+                const dispCX = slot.centerX * scaleX;
+                const dispCY = slot.centerY * scaleY;
+                // APPLY SCALE from slider
+                const dispW = (slot.width * scaleX) * slot.scale;
+                const dispH = (slot.height * scaleY) * slot.scale;
+
+                ctx.save();
+                ctx.translate(dispCX, dispCY);
+                ctx.rotate(slot.rotation);
+                
+                // Draw Box
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.strokeRect(-dispW / 2, -dispH / 2, dispW, dispH);
+                
+                // Draw Label
+                ctx.fillStyle = color;
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, 0, 0); 
+                
+                ctx.restore();
+            }
+
+            /**
+             * Redraws the mapping canvas with template and all slots.
+             */
+            function drawCurrentMapping() {
+                const displayW = mappingCanvas.width;
+                const displayH = mappingCanvas.height;
+                const scaleX = displayW / templateImage.width;
+                const scaleY = displayH / templateImage.height;
+
+                // Redraw template
+                mappingCtx.clearRect(0, 0, displayW, displayH);
+                mappingCtx.drawImage(templateImage, 0, 0, displayW, displayH);
+
+                // Draw finalized slots (yellow)
+                photoSlots.forEach((slot, index) => {
+                    drawRotatedRect(mappingCtx, slot, scaleX, scaleY, '#ffcc00', `Photo ${index + 1}`);
+                });
+
+                // Draw the slot currently being adjusted (red)
+                if (mappingState.clickCount === 2 && mappingState.tempSlot) {
+                    drawRotatedRect(mappingCtx, mappingState.tempSlot, scaleX, scaleY, 'red', `Photo ${mappingState.photoIndex}`);
+                }
+            }
+
+            
+            // --- NEW: Refactored Event Handlers for Touch + Mouse ---
+
+            // Gets normalized coordinates for both mouse and touch events
+            function getCoords(e) {
+                const rect = mappingCanvas.getBoundingClientRect();
+                let clientX, clientY;
+
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                const canvasX = clientX - rect.left;
+                const canvasY = clientY - rect.top;
+                const scaleX = templateImage.width / mappingCanvas.width;
+                const scaleY = templateImage.height / mappingCanvas.height;
+                const originalX = canvasX * scaleX;
+                const originalY = canvasY * scaleY;
+                
+                return { canvasX, canvasY, originalX, originalY };
+            }
+
+            // Called on first and second click/tap
+            function handleMapClick(coords) {
+                // NEW: Clear redo stack as soon as user starts new action
+                undoStack = [];
+                updateButtonStates(); 
+
+                if (mappingState.clickCount === 0) {
+                    // First click: Define TOP-LEFT
+                    mappingState.startX = coords.originalX;
+                    mappingState.startY = coords.originalY;
+                    mappingState.tempX = coords.canvasX; 
+                    mappingState.tempY = coords.canvasY;
+                    mappingState.clickCount = 1;
+                    updateMappingInstructions();
+
+                } else if (mappingState.clickCount === 1) {
+                    // Second click: Define BOTTOM-RIGHT
+                    const endX = coords.originalX;
+                    const endY = coords.originalY;
+
+                    const x = Math.min(mappingState.startX, endX);
+                    const y = Math.min(mappingState.startY, endY);
+                    const w = Math.abs(mappingState.startX - endX);
+                    const h = Math.abs(mappingState.startY - endY);
+
+                    if (w < 10 || h < 10) {
+                        mappingInstructions.innerHTML = `Slot too small. Redo Photo **${mappingState.photoIndex}** (Click TOP-LEFT).`;
+                        mappingState.clickCount = 0; 
+                        drawCurrentMapping();
+                        return;
+                    }
+
+                    // Store this non-rotated box as the tempSlot
+                    mappingState.tempSlot = {
+                        centerX: x + w / 2,
+                        centerY: y + h / 2,
+                        width: w,
+                        height: h,
+                        rotation: 0,
+                        scale: 1 
+                    };
+                    
+                    mappingState.clickCount = 2; // Move to adjustment step
+                    updateMappingInstructions();
+                    drawCurrentMapping(); 
+                    
+                    rotationValueLabel.textContent = 'Rotation: 0°';
+                    scaleValueLabel.textContent = 'Scale: 100%';
+                    // visibility handled by updateMappingInstructions
+                }
+            }
+
+            // Called to start a drag (mousedown or 1-finger touch)
+            function startDrag(coords) {
+                if (mappingState.clickCount !== 2 || !mappingState.tempSlot) return;
+
+                // NEW: Clear redo stack as soon as user starts new action
+                undoStack = [];
+                updateButtonStates(); 
+
+                mappingState.isDragging = true;
+                const scaleX = mappingCanvas.width / templateImage.width;
+                const scaleY = mappingCanvas.height / templateImage.height;
+                
+                const dispCX = mappingState.tempSlot.centerX * scaleX;
+                const dispCY = mappingState.tempSlot.centerY * scaleY;
+                
+                mappingState.dragOffsetX = coords.canvasX - dispCX;
+                mappingState.dragOffsetY = coords.canvasY - dispCY;
+                mappingCanvas.style.cursor = 'grabbing';
+            }
+
+            // Called on mousemove or 1-finger touchmove
+            function handleDrag(coords) {
+                if (!mappingState.isDragging) return;
+
+                const scaleX = templateImage.width / mappingCanvas.width;
+                const scaleY = templateImage.height / mappingCanvas.height;
+
+                const newDispCX = coords.canvasX - mappingState.dragOffsetX;
+                const newDispCY = coords.canvasY - mappingState.dragOffsetY;
+                
+                mappingState.tempSlot.centerX = newDispCX * scaleX;
+                mappingState.tempSlot.centerY = newDispCY * scaleY;
+                
+                drawCurrentMapping();
+            }
+
+            // Called on 2-finger touchmove
+            function handlePinchRotate(t0, t1) {
+                if (!mappingState.tempSlot) return;
+
+                // NEW: Clear redo stack as soon as user starts new action
+                if (undoStack.length > 0) {
+                    undoStack = [];
+                    updateButtonStates();
+                }
+
+                // Calculate new distance and angle
+                const newDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+                const newAngle = Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX);
+
+                // --- Calculate Scale ---
+                const scaleDelta = newDist / mappingState.initialPinchDistance;
+                let newScale = mappingState.baseScale * scaleDelta; // Apply delta to base
+                newScale = Math.max(0.1, Math.min(newScale, 3.0)); // Clamp
+                mappingState.tempSlot.scale = newScale;
+                scaleValueLabel.textContent = `Scale: ${Math.round(newScale * 100)}%`;
+
+                // --- Calculate Rotation ---
+                const angleDelta = newAngle - mappingState.initialPinchAngle;
+                let newRotation = mappingState.baseRotation + angleDelta; // Apply delta to base
+                mappingState.tempSlot.rotation = newRotation;
+                rotationValueLabel.textContent = `Rotation: ${Math.round(newRotation * 180 / Math.PI)}°`;
+            }
+
+            // --- MOUSE LISTENERS ---
+            mappingCanvas.addEventListener('mousedown', (e) => {
+                if (mappingState.photoIndex > numPhotosToTake || e.button !== 0) return; 
+                e.preventDefault(); 
+                const coords = getCoords(e);
+
+                if (mappingState.clickCount < 2) {
+                    handleMapClick(coords);
+                } else {
+                    startDrag(coords);
+                }
+            });
+            
+            mappingCanvas.addEventListener('mousemove', (e) => {
+                const coords = getCoords(e);
+                if (mappingState.isDragging) {
+                    handleDrag(coords);
+                } else if (mappingState.clickCount === 1) {
+                    // Draw the temporary selection box
+                    drawCurrentMapping(); 
+                    const w = coords.canvasX - mappingState.tempX;
+                    const h = coords.canvasY - mappingState.tempY;
+                    mappingCtx.strokeStyle = 'red';
+                    mappingCtx.lineWidth = 2;
+                    mappingCtx.setLineDash([5, 5]); 
+                    mappingCtx.strokeRect(mappingState.tempX, mappingState.tempY, w, h);
+                    mappingCtx.setLineDash([]); 
+                }
+            });
+
+            mappingCanvas.addEventListener('mouseup', () => {
+                mappingState.isDragging = false;
+                if (mappingState.clickCount === 2) {
+                    updateMappingInstructions(); // Resets cursor to 'move'
+                }
+            });
+            
+            mappingCanvas.addEventListener('mouseleave', () => {
+                 mappingState.isDragging = false;
+                 if (mappingState.clickCount === 2) {
+                    updateMappingInstructions(); 
+                }
+            });
+
+            mappingCanvas.addEventListener('wheel', (e) => {
+                if (mappingState.clickCount !== 2 || !mappingState.tempSlot) return;
+                e.preventDefault(); 
+
+                // NEW: Clear redo stack as soon as user starts new action
+                if (undoStack.length > 0) {
+                    undoStack = [];
+                    updateButtonStates();
+                }
+
+                if (e.shiftKey) {
+                    // ROTATE
+                    const rotateAmount = e.deltaY > 0 ? -0.03 : 0.03;
+                    let newRotation = mappingState.tempSlot.rotation + rotateAmount;
+                    if (Math.abs(newRotation) < 0.03) newRotation = 0; // Snap
+                    mappingState.tempSlot.rotation = newRotation;
+                    rotationValueLabel.textContent = `Rotation: ${Math.round(newRotation * 180 / Math.PI)}°`;
+                } else {
+                    // SCALE
+                    const scaleAmount = e.deltaY > 0 ? -0.02 : 0.02;
+                    let newScale = mappingState.tempSlot.scale + scaleAmount;
+                    newScale = Math.max(0.1, Math.min(newScale, 3.0));
+                    if (Math.abs(newScale - 1.0) < 0.02) newScale = 1.0; // Snap
+                    mappingState.tempSlot.scale = newScale;
+                    scaleValueLabel.textContent = `Scale: ${Math.round(newScale * 100)}%`;
+                }
+                drawCurrentMapping();
+            });
+
+            // --- KEYBOARD LISTENER ---
+            mappingCanvas.addEventListener('keydown', (e) => {
+                // Ensure focus remains on the canvas
+                if (e.key === "Escape") {
+                    cancelCurrentSelection();
+                    e.preventDefault(); // Prevent browser default action
+                } else if (e.key === "Enter" && mappingState.clickCount === 2) {
+                    // Use the Enter key to confirm the slot adjustment
+                    confirmAdjustmentBtn.click();
+                    e.preventDefault(); // Prevent browser default action
+                }
+            });
+            
+            // NEW: Global keydown listener for Camera View ESCAPE key
+            document.addEventListener('keydown', (e) => {
+                if (views.camera.style.display === 'flex' && e.key === "Escape") {
+                    exitCamera();
+                    e.preventDefault();
+                }
+            });
+
+
+            // --- TOUCH LISTENERS ---
+            mappingCanvas.addEventListener('touchstart', (e) => {
+                if (mappingState.photoIndex > numPhotosToTake) return; 
+                e.preventDefault();
+                const touches = e.touches;
+                
+                if (mappingState.clickCount < 2) {
+                    const coords = getCoords(e);
+                    handleMapClick(coords);
+                } else {
+                    if (touches.length === 1) {
+                        const coords = getCoords(e);
+                        startDrag(coords);
+                    } else if (touches.length === 2) {
+                        // Start pinch/rotate
+                        // NEW: Clear redo stack
+                        undoStack = [];
+                        updateButtonStates(); 
+                        
+                        mappingState.isDragging = false; // Stop 1-finger drag
+                        const t0 = touches[0];
+                        const t1 = touches[1];
+                        
+                        mappingState.initialPinchDistance = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+                        mappingState.initialPinchAngle = Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX);
+                        mappingState.baseScale = mappingState.tempSlot.scale;
+                        mappingState.baseRotation = mappingState.tempSlot.rotation;
+                    }
+                }
+            });
+
+            mappingCanvas.addEventListener('touchmove', (e) => {
+                if (mappingState.photoIndex > numPhotosToTake) return; 
+                e.preventDefault();
+                const touches = e.touches;
+
+                if (mappingState.isDragging && touches.length === 1) {
+                    const coords = getCoords(e);
+                    handleDrag(coords);
+                } else if (mappingState.clickCount === 2 && touches.length === 2) {
+                    handlePinchRotate(touches[0], touches[1]);
+                } else if (mappingState.clickCount === 1 && touches.length === 1) {
+                    // Draw selection box on touch
+                    const coords = getCoords(e);
+                    drawCurrentMapping(); 
+                    const w = coords.canvasX - mappingState.tempX;
+                    const h = coords.canvasY - mappingState.tempY;
+                    mappingCtx.strokeStyle = 'red';
+                    mappingCtx.lineWidth = 2;
+                    mappingCtx.setLineDash([5, 5]); 
+                    mappingCtx.strokeRect(mappingState.tempX, mappingState.tempY, w, h);
+                    mappingCtx.setLineDash([]); 
+                }
+                
+                // Always redraw during touchmove if adjusting
+                if(mappingState.clickCount === 2) {
+                    drawCurrentMapping();
+                }
+            });
+
+            mappingCanvas.addEventListener('touchend', (e) => {
+                mappingState.isDragging = false;
+                
+                // If we were pinching, and one finger remains, start dragging
+                if (mappingState.clickCount === 2 && e.touches.length === 1) {
+                    const coords = getCoords(e); // Get coords from the *remaining* finger
+                    startDrag(coords);
+                } else if (e.touches.length === 0) {
+                    // Reset pinch state if all fingers are up
+                    mappingState.initialPinchDistance = null;
+                    mappingState.initialPinchAngle = null;
+                }
+
+                if (mappingState.clickCount === 2) {
+                    updateMappingInstructions(); // Resets cursor to 'move'
+                }
+            });
+
+
+            // --- Button Clicks ---
+            confirmAdjustmentBtn.addEventListener('click', () => {
+                if (!mappingState.tempSlot) return;
+                
+                photoSlots.push(mappingState.tempSlot);
+                
+                mappingState.tempSlot = null;
+                mappingState.clickCount = 0;
+                mappingState.photoIndex++;
+                
+                // Hide controls after confirmation
+                confirmAdjustmentBtn.style.display = 'none';
+                adjustmentReadout.classList.add('hidden');
+                
+                updateMappingInstructions();
+                drawCurrentMapping(); 
+                updateButtonStates(); 
+                mappingCanvas.focus(); // Re-focus after click
+            });
+            
+            changeTemplateBtn.addEventListener('click', () => {
+                showView('template'); 
+            });
+
+            resetMappingBtn.addEventListener('click', () => {
+                setupMappingView();
+            });
+
+            // NEW: Undo Button Logic
+            undoBtn.addEventListener('click', () => {
+                if (photoSlots.length > 0) {
+                    // Cancel any selection in progress
+                    cancelCurrentSelection();
+
+                    const undoneSlot = photoSlots.pop();
+                    undoStack.push(undoneSlot);
+                    mappingState.photoIndex--;
+
+                    updateMappingInstructions();
+                    drawCurrentMapping();
+                    updateButtonStates();
+                    mappingCanvas.focus(); // Re-focus after click
+                }
+            });
+
+            // NEW: Redo Button Logic
+            redoBtn.addEventListener('click', () => {
+                if (undoStack.length > 0) {
+                    // Cancel any selection in progress
+                    cancelCurrentSelection(); 
+
+                    const redoneSlot = undoStack.pop();
+                    photoSlots.push(redoneSlot);
+                    mappingState.photoIndex++;
+
+                    updateMappingInstructions();
+                    drawCurrentMapping();
+                    updateButtonStates();
+                    mappingCanvas.focus(); // Re-focus after click
+                }
+            });
+            
+            startMappedBtn.addEventListener('click', () => {
+                if (photoSlots.length === numPhotosToTake) { 
+                    showView('camera');
+                    startCamera();
+                }
+            });
+
+            // --- 2. Camera Logic ---
+            
+            // NEW: Function to stop camera and return to setup
+            function exitCamera() {
+                // Clear any running countdown
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null; // Important: reset interval handle
+                    countdownEl.style.display = 'none';
+                }
+                
+                stopCamera();
+                
+                // Reset photo state
+                capturedPhotos = [];
+                photoCount = 0;
+                
+                // Hide crop overlay
+                cropFrameOverlay.style.display = 'none';
+                
+                // Determine target view
+                if (useTemplate) {
+                    // Return to mapping view, re-setting it up ensures state is clean
+                    setupMappingView();
+                    showView('mapping');
+                } else {
+                    // Return to template view
+                    showView('template');
+                }
+            }
+            
+            // Bind the new close button
+            closeCameraBtn.addEventListener('click', exitCamera);
+
+            async function startCamera() {
+                capturedPhotos = [];
+                photoCount = 0;
+                updatePhotoCounter();
+                captureBtn.style.display = 'block';
+                cropFrameOverlay.style.display = 'none'; // Hide overlay initially
+
+                try {
+                    if (stream) stopCamera();
+                    
+                    const selectedDeviceId = cameraSelect.value;
+                    const videoConstraints = {
+                        aspectRatio: TARGET_ASPECT_RATIO,
+                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined
+                    };
+
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: videoConstraints,
+                        audio: false
+                    });
+                    videoEl.srcObject = stream;
+                    await videoEl.play();
+                } catch (err) {
+                    console.error("Error accessing camera:", err);
+                    if (err.name === "NotAllowedError" || err.name === "NotFoundError") {
+                         fileNameEl.textContent = "Error: Camera permission denied or camera not found.";
+                    } else {
+                         fileNameEl.textContent = "Error: Could not access camera.";
+                    }
+                    stopCamera();
+                    enumerateCameras(); 
+                    showView('template');
+                }
+            }
+            
+            function stopCamera() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                videoEl.srcObject = null;
+                videoEl.pause();
+            }
+
+            // Helper function to get the target aspect ratio for the current photo slot
+            function getCurrentRequiredAspectRatio() {
+                if (useTemplate && photoCount < numPhotosToTake) {
+                    const slot = photoSlots[photoCount];
+                    // Ensure width/height are non-zero
+                    return slot.width / slot.height; 
+                }
+                // Default to the wide ratio (for non-template capture)
+                return TARGET_ASPECT_RATIO;
+            }
+
+            /**
+             * Calculates the actual visible dimensions of the video element (the white area, excluding black bars).
+             * @returns {{dispW: number, dispH: number}} Displayed dimensions.
+             */
+            function getVideoDisplayDimensions() {
+                const viewportW = window.innerWidth;
+                const viewportH = window.innerHeight;
+                // We request the video stream to be TARGET_ASPECT_RATIO (16/9), so we use that for calculation.
+                const streamRatio = TARGET_ASPECT_RATIO; 
+
+                let dispW, dispH;
+                
+                // object-fit: contain logic: Find the limiting factor (width or height)
+                if (viewportW / viewportH > streamRatio) {
+                    // Viewport is wider than stream: height is limiting factor
+                    dispH = viewportH;
+                    dispW = viewportH * streamRatio;
+                } else {
+                    // Viewport is taller than stream: width is limiting factor
+                    dispW = viewportW;
+                    dispH = viewportW / streamRatio;
+                }
+                
+                return { dispW, dispH };
+            }
+
+            /**
+             * Function to visually frame the crop area based on the current slot's aspect ratio.
+             */
+            function updateCameraCropVisual() {
+                // Only show the crop visual if we are using a template and still taking photos
+                if (!useTemplate || photoCount >= numPhotosToTake) {
+                    cropFrameOverlay.style.display = 'none';
+                    return;
+                }
+
+                const requiredRatio = getCurrentRequiredAspectRatio();
+                const { dispW, dispH } = getVideoDisplayDimensions(); // Use actual displayed video dimensions
+                
+                let frameW, frameH;
+                
+                // We maximize the frame to fill the largest possible area within the video feed
+                // while maintaining the required aspect ratio.
+                if (dispW / dispH > requiredRatio) {
+                    // Displayed video area is wider than required frame: height is limiting factor for the frame
+                    frameH = dispH; 
+                    frameW = dispH * requiredRatio;
+                } else {
+                    // Displayed video area is taller than required frame: width is limiting factor for the frame
+                    frameW = dispW;
+                    frameH = dispW / requiredRatio;
+                }
+                
+                // Ensure frame is always constrained by the display dimensions (redundant, but safe)
+                frameW = Math.min(frameW, dispW);
+                frameH = Math.min(frameH, dispH);
+
+                cropFrameOverlay.style.width = `${frameW}px`;
+                cropFrameOverlay.style.height = `${frameH}px`;
+                cropFrameOverlay.style.display = 'block';
+            }
+            
+            captureBtn.addEventListener('click', () => {
+                if (videoEl.paused || videoEl.readyState < 3) {
+                     console.warn("Capture button clicked before stream was ready.");
+                     return; 
+                }
+                captureBtn.style.display = 'none'; 
+                startCountdown();
+            });
+
+            function startCountdown() {
+                let count = CAPTURE_DELAY_MS / 1000; 
+                
+                if (countdownInterval) clearInterval(countdownInterval);
+
+                countdownEl.style.display = ''; 
+                countdownEl.textContent = count;
+                triggerCountdownAnimation();
+                
+                // NEW: Update visual crop based on the next photo slot
+                updateCameraCropVisual();
+
+                countdownInterval = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countdownEl.textContent = count;
+                        triggerCountdownAnimation();
+                    } else {
+                        clearInterval(countdownInterval);
+                        countdownInterval = null;
+                        countdownEl.textContent = '📸';
+                        triggerCountdownAnimation();
+                        
+                        // Hide the crop frame overlay immediately before taking the shot
+                        cropFrameOverlay.style.display = 'none';
+
+                        setTimeout(() => {
+                            countdownEl.style.display = 'none'; 
+                            takePhoto();
+                        }, 500); 
+                    }
+                }, 1000);
+            }
+
+            function triggerCountdownAnimation() {
+                countdownEl.classList.remove('animate');
+                void countdownEl.offsetWidth; 
+                countdownEl.classList.add('animate');
+            }
+
+            function takePhoto() {
+                const photoPreviewEl = document.getElementById('photo-preview-overlay');
+
+                const videoW = videoEl.videoWidth;
+                const videoH = videoEl.videoHeight;
+                const videoAspect = videoW / videoH;
+
+                let requiredAspectRatio = getCurrentRequiredAspectRatio(); // Use helper function
+                
+                let sX = 0, sY = 0, sW = videoW, sH = videoH;
+
+                // Crop the video stream based on the required aspect ratio
+                if (videoAspect > requiredAspectRatio) {
+                    // Video is wider than required ratio (e.g., 16:9 video for 1:1 slot), crop sides
+                    sW = videoH * requiredAspectRatio;
+                    sX = (videoW - sW) / 2;
+                } else if (videoAspect < requiredAspectRatio) {
+                    // Video is taller than required ratio (e.g., 1:1 slot for a 9:16 vertical video), crop top/bottom
+                    sH = videoW / requiredAspectRatio;
+                    sY = (videoH - sH) / 2;
+                }
+                // If videoAspect == requiredAspectRatio, no cropping needed.
+
+                captureCanvas.width = sW;
+                captureCanvas.height = sH;
+
+                // --- MIRROR CAPTURE LOGIC ---
+                captureCtx.save();
+                captureCtx.translate(sW, 0); 
+                captureCtx.scale(-1, 1); 
+                captureCtx.drawImage(videoEl, sX, sY, sW, sH, 0, 0, sW, sH);
+                captureCtx.restore(); 
+                // --- END MIRROR CAPTURE LOGIC ---
+
+                const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
+                capturedPhotos.push(currentPhotoDataUrl);
+                photoCount++;
+                updatePhotoCounter();
+
+                photoPreviewEl.src = currentPhotoDataUrl;
+                photoPreviewEl.style.display = 'block';
+
+                setTimeout(() => {
+                    photoPreviewEl.style.display = 'none';
+                    photoPreviewEl.src = '';
+
+                    if (photoCount < numPhotosToTake) { 
+                        startCountdown(); // Loop starts here and calls updateCameraCropVisual
+                    } else {
+                        stopCamera();
+                        createFinalImage();
+                    }
+                }, 2000);
+            }
+
+            function updatePhotoCounter() {
+                photoCounterEl.textContent = `${photoCount} / ${numPhotosToTake}`; 
+            }
+
+            // --- 3. Final Image & Preview Logic ---
+            
+            function createFinalImage() {
+                showView('preview');
+
+                let imagesLoaded = 0;
+                const photoImages = [];
+
+                capturedPhotos.forEach((dataURL, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        imagesLoaded++;
+                        if (imagesLoaded === capturedPhotos.length) { 
+                            if (useTemplate) {
+                                drawWithTemplate(photoImages);
+                            } else {
+                                drawWithoutTemplate(photoImages);
+                            }
+                        }
+                    };
+                    img.src = dataURL;
+                    photoImages[index] = img;
+                });
+                
+                if (useTemplate) {
+                    remapBtn.style.display = 'block';
+                } else {
+                    remapBtn.style.display = 'none';
+                }
+            }
+
+            function drawWithoutTemplate(photoImages) {
+                const photoW = photoImages[0].width;
+                const photoH = photoImages[0].height;
+                mergeCanvas.width = photoW;
+                mergeCanvas.height = photoH * numPhotosToTake; 
+                mergeCtx.clearRect(0, 0, mergeCanvas.width, mergeCanvas.height);
+                
+                photoImages.forEach((img, index) => {
+                     mergeCtx.drawImage(img, 0, photoH * index, photoW, photoH);
+                });
+            }
+
+            function drawWithTemplate(photoImages) {
+                const templateW = templateImage.width;
+                const templateH = templateImage.height;
+                mergeCanvas.width = templateW;
+                mergeCanvas.height = templateH;
+                mergeCtx.clearRect(0, 0, templateW, templateH);
+
+                const photoCoords = photoSlots;
+                
+                // 1. Draw all photos, each inside its own rotated/clipped mask
+                photoImages.forEach((img, index) => {
+                    if (!photoCoords[index]) return; 
+                    
+                    const coords = photoCoords[index];
+                    
+                    mergeCtx.save(); 
+                    
+                    // --- A: Create the clipping path based on user's slot ---
+                    mergeCtx.translate(coords.centerX, coords.centerY);
+                    mergeCtx.rotate(coords.rotation);
+
+                    // APPLY SCALE to the clipping path dimensions
+                    const scaledWidth = coords.width * coords.scale;
+                    const scaledHeight = coords.height * coords.scale;
+
+                    mergeCtx.beginPath();
+                    mergeCtx.rect(-scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
+                    mergeCtx.clip();
+
+                    // --- B: Draw the photo to "cover" this new scaled/clipped area ---
+                    const targetW = scaledWidth;
+                    const targetH = scaledHeight;
+                    const targetAspect = targetW / targetH;
+                    
+                    const sourceW = img.width;
+                    const sourceH = img.height;
+                    const sourceAspect = sourceW / sourceH; // This is now dynamically set during capture
+                    
+                    let sX = 0, sY = 0, sW = sourceW, sH = sourceH;
+
+                    // Standard "object-fit: cover" logic. Note: Since sourceAspect should match targetAspect now, 
+                    // this logic mostly ensures the image is scaled to fit the *size* of the slot area.
+                    // If targetAspect and sourceAspect are exactly equal, the crop logic here should result in full image being used.
+                    if (sourceAspect > targetAspect) {
+                        sH = sourceH;
+                        sW = sourceH * targetAspect;
+                        sX = (sourceW - sW) / 2;
+                    } else {
+                        sW = sourceW;
+                        sH = sourceW / targetAspect;
+                        sY = (sourceH - sH) / 2;
+                    }
+
+                    // Draw the cropped source image into the centered, rotated, scaled destination
+                    mergeCtx.drawImage(img, sX, sY, sW, sH, -targetW / 2, -targetH / 2, targetW, targetH);
+                    
+                    mergeCtx.restore(); 
+                });
+
+                // 2. Draw the PNG template OVER everything
+                mergeCtx.drawImage(templateImage, 0, 0, templateW, templateH);
+            }
+
+            retakeBtn.addEventListener('click', () => {
+                showView('camera');
+                startCamera(); 
+            });
+
+            remapBtn.addEventListener('click', () => {
+                if (useTemplate) {
+                    showView('mapping');
+                    setupMappingView(); 
+                }
+            });
+
+            saveBtn.addEventListener('click', () => {
+                const dataURL = mergeCanvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = 'photobooth-strip.png';
+                link.href = dataURL;
+                link.click();
+            });
+
+            // --- Initial State ---
+            showView('template');
+            enumerateCameras(); 
+            
+            // Re-setup mapping view on resize to keep canvas dimensions correct
+            window.addEventListener('resize', () => {
+                if (views.mapping.style.display === 'flex' && templateImage.src) {
+                    // This will redraw the template and all confirmed slots correctly
+                    setupMappingView(); 
+                }
+                if (views.camera.style.display === 'flex') {
+                    // Update crop visual if user resizes the window while on camera screen
+                    updateCameraCropVisual();
+                }
+            });
+
+            
+        });
+    </script>
+</body>
+</html>
