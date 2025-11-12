@@ -190,6 +190,29 @@
             transition: all 0.3s ease;
         }
         
+        /* NEW: Flash Overlay */
+        #flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            opacity: 0;
+            z-index: 25; /* Above countdown (20), below captured photo preview (30) */
+            pointer-events: none;
+        }
+
+        .flash-animation {
+            animation: camera-flash 0.3s ease-out;
+        }
+
+        @keyframes camera-flash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
         #capture-btn {
             position: relative; /* 'relative' works with flex parent */
             z-index: 10;
@@ -275,14 +298,32 @@
         /* New overlay for 2-second preview */
         #photo-preview-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 50%; /* Center vertically */
+            left: 50%; /* Center horizontally */
+            transform: translate(-50%, -50%) scale(0.9) rotate(0deg); /* Start slightly smaller and upright */
+            
+            max-width: 90vw;
+            max-height: 90vh;
+            
             display: none; /* Hide by default */
-            object-fit: contain; /* Show the whole 16:9 photo */
-            background-color: #000; /* Black background */
+            object-fit: contain; 
+            
             z-index: 30; /* On top of everything */
+            
+            /* UPDATED STYLES: Removed border, enhanced shadow */
+            border: none; /* Removed the white border */
+            border-radius: 12px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7), 0 0 0 5px rgba(255, 255, 255, 0.1); /* Larger, softer shadow with a subtle white glow */
+            opacity: 0;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease-out;
+        }
+
+        /* This new class will be toggled by JS */
+        #photo-preview-overlay.show-preview {
+            display: block;
+            opacity: 1;
+            /* The 'rotate' part is now set dynamically by JS, 'scale' remains here as a base */
+            transform: translate(-50%, -50%) scale(1.1); 
         }
 
         #merge-canvas {
@@ -349,9 +390,8 @@
 </head>
 <body>
 
-    <!-- View 1: Template Upload -->
-    <div id="template-view" class="view">
-        <h1>Welcome to the PhotoBooth!</h1>
+    <!-- View 1: Template Upload --><div id="template-view" class="view">
+        <h1>Welcome to ICT PhotoBooth!</h1>
         
         <select id="camera-select">
             <option value="">Loading cameras...</option>
@@ -366,8 +406,7 @@
         
         <div id="file-name">No file selected.</div>
 
-        <!-- NEW: Photo Count Selector -->
-        <label for="photo-count-select" style="margin-top: 20px; display: block; color: #ccc;">Number of Photos:</label>
+        <!-- NEW: Photo Count Selector --><label for="photo-count-select" style="margin-top: 20px; display: block; color: #ccc;">Number of Photos:</label>
         <select id="photo-count-select" style="margin-top: 5px; padding: 10px; border-radius: 4px; border: 1px solid #444; background-color: #2a2a2a; color: var(--light-text); font-size: 1em; width: 250px; box-shadow: var(--shadow); appearance: none;">
             <option value="1">1 Photo</option>
             <option value="2">2 Photos</option>
@@ -389,51 +428,42 @@
         </button>
     </div>
 
-    <!-- View 1.5: Template Mapping -->
-    <div id="mapping-view" class="view">
+    <!-- View 1.5: Template Mapping --><div id="mapping-view" class="view">
         <h2>ICT Photo Studio</h2>
         <p class="mapping-text" id="mapping-instructions">Click **TOP-LEFT** corner for Photo 1.</p>
         
-        <!-- ADJUSTMENT READOUTS MOVED HERE FOR BETTER LAYOUT -->
-        <div id="adjustment-readout" class="adjustment-readout hidden">
+        <!-- ADJUSTMENT READOUTS MOVED HERE FOR BETTER LAYOUT --><div id="adjustment-readout" class="adjustment-readout hidden">
             <span id="rotation-value-label">Rotation: 0°</span>
             <span id="scale-value-label">Scale: 100%</span>
         </div>
         
-        <!-- NEW: Added tabindex to allow keydown events. Focus is applied via JS. -->
-        <canvas id="mapping-canvas" tabindex="0"></canvas>
+        <!-- NEW: Added tabindex to allow keydown events. Focus is applied via JS. --><canvas id="mapping-canvas" tabindex="0"></canvas>
         
         <div class="button-group">
-            <!-- CONFIRM BUTTON is now part of the main group, visibility controlled by JS -->
-            <button id="confirm-adjustment-btn" class="btn" style="display: none;">Confirm Slot (Enter)</button>
+            <!-- CONFIRM BUTTON is now part of the main group, visibility controlled by JS --><button id="confirm-adjustment-btn" class="btn" style="display: none;">Confirm Slot (Enter)</button>
 
             <button id="change-template-btn" class="btn">Change Template</button> 
             <button id="reset-mapping-btn" class="btn">Redo Current Map</button>
-            <!-- NEW: Undo and Redo buttons -->
-            <button id="undo-btn" class="btn">Undo</button>
+            <!-- NEW: Undo and Redo buttons --><button id="undo-btn" class="btn">Undo</button>
             <button id="redo-btn" class="btn">Redo</button>
             <button id="start-mapped-btn" class="btn" style="display: none;">Start PhotoBooth</button>
         </div>
     </div>
 
-    <!-- View 2: Camera -->
-    <div id="camera-view" class="view" tabindex="0">
-        <!-- NEW: Close Camera Button -->
-        <button id="close-camera-btn" title="Exit to settings">
+    <!-- View 2: Camera --><div id="camera-view" class="view" tabindex="0">
+        <!-- NEW: Close Camera Button --><button id="close-camera-btn" title="Exit to settings">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
         
         <video id="video-preview" autoplay playsinline muted></video>
-        <div id="crop-frame-overlay"></div> <!-- NEW: Visual framing overlay -->
-        <img id="photo-preview-overlay" /> 
+        <div id="crop-frame-overlay"></div> <!-- NEW: Visual framing overlay --><div id="flash-overlay"></div> <!-- NEW: Photo Flash Overlay --><img id="photo-preview-overlay" /> 
         <div id="photo-counter-overlay">0 / 4</div>
         <div id="countdown-overlay">10</div>
         <button id="capture-btn"></button>
     </div>
 
-    <!-- View 3: Final Preview -->
-    <div id="preview-view" class="view">
-        <h2>Your Photo Strip!</h2>
+    <!-- View 3: Final Preview --><div id="preview-view" class="view">
+        <h2>That's Awesome</h2>
         <canvas id="merge-canvas"></canvas>
         <div class="button-group">
             <button id="retake-btn" class="btn">Retake Photos</button>
@@ -484,10 +514,11 @@
             const cameraView = document.getElementById('camera-view'); // Added to reference the container
             const videoEl = document.getElementById('video-preview');
             const cropFrameOverlay = document.getElementById('crop-frame-overlay'); 
+            const flashOverlay = document.getElementById('flash-overlay'); // NEW
             const captureBtn = document.getElementById('capture-btn');
             const photoCounterEl = document.getElementById('photo-counter-overlay');
             const countdownEl = document.getElementById('countdown-overlay');
-            const closeCameraBtn = document.getElementById('close-camera-btn'); // NEW
+            const closeCameraBtn = document.getElementById('close-camera-btn'); 
 
             // Preview View
             const mergeCanvas = document.getElementById('merge-canvas');
@@ -1343,16 +1374,21 @@
                     } else {
                         clearInterval(countdownInterval);
                         countdownInterval = null;
-                        countdownEl.textContent = '📸';
+                        countdownEl.textContent = ''; // CHANGED from '📸'
                         triggerCountdownAnimation();
                         
                         // Hide the crop frame overlay immediately before taking the shot
                         cropFrameOverlay.style.display = 'none';
 
+                        // NEW: Trigger the flash before photo is taken
+                        flashOverlay.classList.add('flash-animation');
                         setTimeout(() => {
+                            flashOverlay.classList.remove('flash-animation');
+                            
+                            // Continue to photo capture
                             countdownEl.style.display = 'none'; 
                             takePhoto();
-                        }, 500); 
+                        }, 300); // 300ms is the duration of the flash animation
                     }
                 }, 1000);
             }
@@ -1403,10 +1439,23 @@
                 updatePhotoCounter();
 
                 photoPreviewEl.src = currentPhotoDataUrl;
-                photoPreviewEl.style.display = 'block';
+                
+                // NEW: Generate random tilt
+                const randomTilt = Math.random() * 6 - 3; // Generates a number between -3 and 3
+                
+                // Apply the random tilt via style property. This will override the class's rotate.
+                // The transition will use this as the "to" state.
+                photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`;
+                
+                photoPreviewEl.classList.add('show-preview'); // NEW
 
                 setTimeout(() => {
-                    photoPreviewEl.style.display = 'none';
+                    photoPreviewEl.classList.remove('show-preview'); // NEW
+                    
+                    // NEW: Reset the inline transform so it can animate back to the base state
+                    // defined in #photo-preview-overlay
+                    photoPreviewEl.style.transform = ''; 
+                    
                     photoPreviewEl.src = '';
 
                     if (photoCount < numPhotosToTake) { 
