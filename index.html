@@ -2,1619 +2,2434 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PhotoBooth</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Storybook Generator</title>
+    <!-- 1. Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Load Inter font --><link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 3. Load jsPDF library for PDF generation --><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- NEW: Load JSZip for media zipping --><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        /* General Setup */
-        :root {
-            --brand-color: #4a90e2;
-            --dark-bg: #1a1a1a;
-            --light-text: #f0f0f0;
-            --shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        /* 4. Set default font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* 5. Custom spinner animation (Only used for small inline components now) */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        /* 6. Page Turning Animation (Slide Simulation) */
+
+        /* Slide In/Out Keyframes */
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutLeft { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-100%); opacity: 0; } }
+        @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+        /* Animation Classes */
+        .animate-slide-in-right { animation: slideInRight 0.5s ease-out forwards; }
+        .animate-slide-out-left { animation: slideOutLeft 0.5s ease-in forwards; }
+        .animate-slide-in-left { animation: slideInLeft 0.5s ease-out forwards; }
+        .animate-slide-out-right { animation: slideOutRight 0.5s ease-in forwards; }
+
+        /* Transition Wrapper: Crucial for hiding sliding content */
+        .page-transition-wrapper {
+            position: relative;
+            overflow: hidden; 
         }
 
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: var(--dark-bg);
-            color: var(--light-text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overscroll-behavior: none; /* Prevents pull-to-refresh */
+        /* Content within the wrapper needs to be positioned for transitions */
+        .page-transition-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
 
-        /* View Management */
-        .view {
+        /* 7. Fullscreen specific styles: Padding removed to allow content to fill the screen edge-to-edge. */
+        .simulated-fullscreen {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            display: none; /* Hidden by default */
+            width: 100vw;
+            height: 100vh;
+            background-color: #f9fafb; /* Match the bg-gray-50 */
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-        }
-
-        /* 1. Template Upload View */
-        #template-view {
-            flex-direction: column;
-            padding: 20px;
-            text-align: center;
-        }
-        #template-view h1 {
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-        #template-view p {
-            font-size: 1.1em;
-            color: #aaa;
-            max-width: 400px;
-            margin-top: 0;
+            overflow-y: auto;
+            z-index: 50; /* Ensure it's on top */
         }
         
-        /* Custom File Input */
-        .file-upload-label {
-            display: inline-block;
-            padding: 12px 25px;
-            background-color: var(--brand-color);
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background-color 0.2s;
-            box-shadow: var(--shadow);
-        }
-        .file-upload-label:hover {
-            background-color: #357ABD;
-        }
-        #template-input {
-            display: none;
-        }
-        #file-name {
-            margin-top: 15px;
-            color: #ccc;
-            font-style: italic;
-        }
-        
-        /* Dropdown Styling */
-        #camera-select {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid #444;
-            background-color: #2a2a2a;
-            color: var(--light-text);
-            font-size: 1em;
-            width: 250px;
-            box-shadow: var(--shadow);
-            appearance: none; /* Remove default styling */
-        }
-
-        /* 1.5 Template Mapping View */
-        #mapping-view {
-            flex-direction: column;
-            padding: 20px;
-            text-align: center;
-        }
-        #mapping-canvas {
-            border: 2px dashed #ccc;
-            cursor: crosshair;
-            max-width: 95vw;
-            max-height: 75vh; /* Adjusted for more control space */
-            object-fit: contain;
-            box-shadow: var(--shadow);
-        }
-        .mapping-text {
-            margin: 10px 0;
-            font-size: 1.2em;
-            font-weight: 500;
-            color: #ffcc00; /* Highlight important text */
-        }
-        
-        /* Adjustment Controls - Now just readouts */
-        .adjustment-readout {
-            display: flex;
-            gap: 20px;
-            font-size: 1em;
-            color: #fff;
-            margin-bottom: 15px;
-        }
-        /* New class for conditionally showing readouts */
-        .adjustment-readout.hidden {
-            display: none;
-        }
-
-        /* 2. Camera View */
-        #camera-view {
-            flex-direction: column;
-            justify-content: flex-end; /* Aligns button to bottom */
-            align-items: center;
-            padding-bottom: 30px; /* Space for the button */
-            box-sizing: border-box;
-        }
-
-        #video-preview {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain; /* Shows full feed, maintains aspect, adds bars */
-            z-index: 1; /* Behind UI */
-            transform: scaleX(-1); /* Mirror preview */
-        }
-        
-        /* NEW: Close Camera Button */
-        #close-camera-btn {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 21; /* CRITICAL: Ensure it's above the countdown overlay (z-index 20) */
-            background: rgba(0, 0, 0, 0.6);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            transition: background-color 0.2s;
-        }
-        #close-camera-btn:hover {
-            background: rgba(0, 0, 0, 0.8);
-        }
-        #close-camera-btn svg {
-            width: 20px;
-            height: 20px;
-        }
-        
-        /* NEW: Crop Frame Overlay */
-        #crop-frame-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            /* We set the width/height dynamically in JS based on the calculated video display size */
-            display: none; 
-            pointer-events: none; 
-            z-index: 5;
-            background-color: transparent;
-            /* Creates a dark mask around the central area defined by width/height */
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); 
-            transition: all 0.3s ease;
-        }
-        
-        /* NEW: Flash Overlay */
-        #flash-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            opacity: 0;
-            z-index: 25; /* Above countdown (20), below captured photo preview (30) */
-            pointer-events: none;
-        }
-
-        .flash-animation {
-            animation: camera-flash 0.3s ease-out;
-        }
-
-        @keyframes camera-flash {
-            0% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        
-        #capture-btn {
-            position: relative; /* 'relative' works with flex parent */
-            z-index: 10;
-            width: 70px;
-            height: 70px;
-            background-color: rgba(255, 255, 255, 0.4);
-            border: 4px solid white;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: var(--shadow);
-            transition: background-color 0.2s;
-        }
-        #capture-btn:hover {
-            background-color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Inner circle for capture button */
-        #capture-btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 50px;
-            height: 50px;
-            background: white;
-            border-radius: 50%;
-        }
-
-        #photo-counter-overlay {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 1em;
-            font-weight: 600;
-            z-index: 21; /* CRITICAL: Ensure it's above the countdown overlay */
-        }
-
-        #countdown-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none; /* Hidden by default */
-            justify-content: center;
-            align-items: center;
-            font-size: 25vmin;
-            font-weight: bold;
-            color: white;
-            text-shadow: 0 0 20px rgba(0,0,0,0.7);
-            z-index: 20;
-            opacity: 0;
-        }
-
-        /* Countdown Animation */
-        #countdown-overlay.animate {
-            display: flex;
-            animation: countdown-pulse 1s ease-in-out forwards;
-        }
-        @keyframes countdown-pulse {
-            0% { opacity: 0; transform: scale(1.5); }
-            20% { opacity: 1; transform: scale(1); }
-            80% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.8); }
-        }
-
-        /* 3. Preview View */
-        #preview-view {
-            flex-direction: column;
-            padding: 10px; /* Reduced padding */
-            gap: 10px; /* Reduced gap */
-            box-sizing: border-box;
-            /* FIX: Ensure preview view uses full screen */
+        /* NEW: Styles for the fullscreen navigation bar (fixed to text pane area) */
+        #fullscreen-nav-bar-wrapper {
+            position: fixed;
+            bottom: 0;
+            left: 0; /* Default full width for mobile */
+            transform: translateX(0);
             width: 100%; 
-            height: 100%;
-            overflow: hidden; /* CRITICAL: Prevent scrolling */
+            height: 70px; 
+            z-index: 60; 
+            pointer-events: none; /* Allows clicks to go through by default */
         }
 
-        /* New overlay for 2-second preview */
-        #photo-preview-overlay {
+        @media (min-width: 768px) {
+            #fullscreen-nav-bar-wrapper {
+                left: 50%; /* Starts at the center line of the screen */
+                transform: translateX(0); /* No translation needed now */
+                width: 50%; /* Only covers the right (text) half of the screen */
+            }
+        }
+        
+
+        #fullscreen-nav-bar {
             position: absolute;
-            top: 50%; /* Center vertically */
-            left: 50%; /* Center horizontally */
-            transform: translate(-50%, -50%) scale(0.9) rotate(0deg); /* Start slightly smaller and upright */
-            
-            max-width: 90vw;
-            max-height: 90vh;
-            
-            display: none; /* Hide by default */
-            object-fit: contain; 
-            
-            z-index: 30; /* On top of everything */
-            
-            /* UPDATED STYLES: Removed border, enhanced shadow */
-            border: none; /* Removed the white border */
-            border-radius: 12px;
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7), 0 0 0 5px rgba(255, 255, 255, 0.1); /* Larger, softer shadow with a subtle white glow */
+            bottom: 0;
+            left: 0;
+            right: 0;
+            /* Initial state is fully visible (opacity 1, translateY 0) */
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            pointer-events: auto; /* Re-enable pointer events on the bar itself */
+        }
+        
+        /* State for when the bar is hidden by JavaScript */
+        #fullscreen-nav-bar.hidden-nav {
             opacity: 0;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease-out;
+            transform: translateY(100%); 
+        }
+        
+        /* New style for the Close button transition */
+        #fullscreen-close-btn {
+            transition: opacity 0.3s ease-out;
+        }
+        
+        /* Custom class to give the text area enough space when the editor is visible */
+        .editor-visible-padding {
+            padding-bottom: 96px; /* A bit of extra room for the editor + buttons */
         }
 
-        /* This new class will be toggled by JS */
-        #photo-preview-overlay.show-preview {
+        /* --- Custom Loader CSS for Storybook Animation (PASTED HERE) --- */
+        .loader {
+            --background: linear-gradient(135deg, #23C4F8, #275EFE);
+            --shadow: rgba(39, 94, 254, 0.28);
+            --text: #6C7486;
+            --page: rgba(255, 255, 255, 0.36);
+            --page-fold: rgba(255, 255, 255, 0.52);
+            --duration: 3s;
+            width: 200px;
+            height: 140px;
+            position: relative;
+        }
+
+        .loader:before, .loader:after {
+            --r: -6deg;
+            content: "";
+            position: absolute;
+            bottom: 8px;
+            width: 120px;
+            top: 80%;
+            box-shadow: 0 16px 12px var(--shadow);
+            transform: rotate(var(--r));
+        }
+
+        .loader:before {
+            left: 4px;
+        }
+
+        .loader:after {
+            --r: 6deg;
+            right: 4px;
+        }
+
+        .loader div {
+            width: 100%;
+            height: 100%;
+            border-radius: 13px;
+            position: relative;
+            z-index: 1;
+            perspective: 600px;
+            box-shadow: 0 4px 6px var(--shadow);
+            background-image: var(--background);
+        }
+
+        .loader div ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            position: relative;
+        }
+
+        .loader div ul li {
+            --r: 180deg;
+            --o: 0;
+            --c: var(--page);
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            transform-origin: 100% 50%;
+            color: var(--c);
+            opacity: var(--o);
+            transform: rotateY(var(--r));
+            -webkit-animation: var(--duration) ease infinite;
+            animation: page-flip var(--duration) ease infinite; /* Renamed animation to avoid conflicts */
+            width: 90px; /* Set dimensions here */
+            height: 120px; /* Set dimensions here */
+        }
+        /* Custom SVGs for the pages */
+        .loader div ul li svg {
+            width: 90px;
+            height: 120px;
             display: block;
-            opacity: 1;
-            /* The 'rotate' part is now set dynamically by JS, 'scale' remains here as a base */
-            transform: translate(-50%, -50%) scale(1.1); 
+            fill: currentColor;
+            background-color: var(--c); /* Use --c for background color */
+            border-radius: 2px;
         }
 
-        #merge-canvas {
-            /* FIX: Increased subtraction to ensure header and buttons fit without clipping */
-            max-width: 95vw; 
-            max-height: calc(100vh - 150px); 
-            object-fit: contain;
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            /* Ensure the canvas element uses fluid dimensions */
-            width: auto;
-            height: auto;
+        .loader div ul li:nth-child(2) {
+            --c: var(--page-fold);
+            -webkit-animation-name: page-2;
+            animation-name: page-2;
         }
 
-        .button-group {
-            display: flex;
-            flex-wrap: wrap; /* Allow buttons to wrap on small screens */
-            justify-content: center;
-            gap: 15px;
-            margin-top: 15px; /* Added margin here */
+        .loader div ul li:nth-child(3) {
+            --c: var(--page-fold);
+            -webkit-animation-name: page-3;
+            animation-name: page-3;
         }
 
-        .btn {
-            padding: 12px 25px;
-            font-size: 1em;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            box-shadow: var(--shadow);
+        .loader div ul li:nth-child(4) {
+            --c: var(--page-fold);
+            -webkit-animation-name: page-4;
+            animation-name: page-4;
         }
-        .btn:hover {
-            opacity: 0.85;
+
+        .loader div ul li:nth-child(5) {
+            --c: var(--page-fold);
+            -webkit-animation-name: page-5;
+            animation-name: page-5;
         }
-        /* NEW: Disabled state for buttons */
-        .btn:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-            opacity: 0.7;
+
+        .loader div ul li:first-child {
+            --r: 0deg;
+            --o: 1;
         }
-        #retake-btn {
-            background-color: #6c757d;
-            color: white;
+
+        .loader div ul li:last-child {
+            --o: 1;
+            /* Ensure the last page (base page) does not animate */
+            -webkit-animation: none;
+            animation: none;
+            transform: rotateY(0deg);
         }
-        #remap-btn, #reset-mapping-btn { /* Apply red style to remap/reset */
-            background-color: #dc3545;
-            color: white;
+        
+        /* Renaming generic 'page-2' to 'page-flip' and defining the flip animation */
+        @keyframes page-flip {
+            0% {
+                transform: rotateY(180deg);
+                opacity: 0;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            35%, 100% {
+                opacity: 0;
+            }
+
+            50%, 100% {
+                transform: rotateY(0deg);
+            }
         }
-        #change-template-btn, #undo-btn, #redo-btn { /* Apply grey style to secondary actions */
-            background-color: #6c757d;
-            color: white;
+
+        @keyframes page-2 {
+            0% { transform: rotateY(180deg); opacity: 0; }
+            20% { opacity: 1; }
+            35%, 100% { opacity: 0; }
+            50%, 100% { transform: rotateY(0deg); }
         }
-        #save-btn, #start-mapped-btn, #confirm-adjustment-btn { /* Main action color */
-            background-color: var(--brand-color);
-            color: white;
+
+        @keyframes page-3 {
+            15% { transform: rotateY(180deg); opacity: 0; }
+            35% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+            65%, 100% { transform: rotateY(0deg); }
         }
-        #start-btn:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-            opacity: 0.7;
+
+        @keyframes page-4 {
+            30% { transform: rotateY(180deg); opacity: 0; }
+            50% { opacity: 1; }
+            65%, 100% { opacity: 0; }
+            80%, 100% { transform: rotateY(0deg); }
+        }
+
+        @keyframes page-5 {
+            45% { transform: rotateY(180deg); opacity: 0; }
+            65% { opacity: 1; }
+            80%, 100% { opacity: 0; }
+            95%, 100% { transform: rotateY(0deg); }
+        }
+
+        .loader span {
+            display: block;
+            left: 0;
+            right: 0;
+            top: 100%;
+            margin-top: 20px;
+            text-align: center;
+            color: #4b5563; /* Use a Tailwind gray text-gray-700 equivalent */
         }
     </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex items-center justify-center p-4">
 
-    <!-- View 1: Template Upload --><div id="template-view" class="view">
-        <h1>Welcome to ICT PhotoBooth!</h1>
+    <!-- Main Content Card --><div id="main-app-card" class="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-2xl w-full">
         
-        <select id="camera-select">
-            <option value="">Loading cameras...</option>
-        </select>
-        
-        <p style="margin-top: 20px;">Please upload your **PNG template** to start. The transparent areas will be filled by photos.</p>
-        
-        <label for="template-input" class="file-upload-label">
-            Select Template (.png)
-        </label>
-        <input type="file" id="template-input" accept="image/png">
-        
-        <div id="file-name">No file selected.</div>
-
-        <!-- NEW: Photo Count Selector --><label for="photo-count-select" style="margin-top: 20px; display: block; color: #ccc;">Number of Photos:</label>
-        <select id="photo-count-select" style="margin-top: 5px; padding: 10px; border-radius: 4px; border: 1px solid #444; background-color: #2a2a2a; color: var(--light-text); font-size: 1em; width: 250px; box-shadow: var(--shadow); appearance: none;">
-            <option value="1">1 Photo</option>
-            <option value="2">2 Photos</option>
-            <option value="3">3 Photos</option>
-            <option value="4" selected>4 Photos</option>
-            <option value="5">5 Photos</option>
-            <option value="6">6 Photos</option>
-            <option value="7">7 Photos</option>
-            <option value="8">8 Photos</option>
-            <option value="9">9 Photos</option>
-            <option value="10">10 Photos</option>
-        </select>
-        
-        <button id="start-btn" class="btn" style="margin-top: 20px;" disabled>
-            Start With Template (Requires Mapping)
-        </button>
-        <button id="start-no-template-btn" class="btn" style="margin-top: 10px; background-color: #6c757d;">
-            Start without Template (Vertical Strip)
-        </button>
-    </div>
-
-    <!-- View 1.5: Template Mapping --><div id="mapping-view" class="view">
-        <h2>ICT Photo Studio</h2>
-        <p class="mapping-text" id="mapping-instructions">Click **TOP-LEFT** corner for Photo 1.</p>
-        
-        <!-- ADJUSTMENT READOUTS MOVED HERE FOR BETTER LAYOUT --><div id="adjustment-readout" class="adjustment-readout hidden">
-            <span id="rotation-value-label">Rotation: 0°</span>
-            <span id="scale-value-label">Scale: 100%</span>
+        <!-- Header Section --><div id="header-section" class="p-6 sm:p-8 border-b border-gray-200">
+            <h1 class="text-3xl sm:text-4xl font-bold text-center text-gray-800">
+                AI Storybook Generator <span class="text-2xl">📖✨</span>
+            </h1>
+            <p class="text-center text-gray-600 mt-2">
+                Enter a theme and let AI create a magical, illustrated story for you.
+            </p>
         </div>
-        
-        <!-- NEW: Added tabindex to allow keydown events. Focus is applied via JS. --><canvas id="mapping-canvas" tabindex="0"></canvas>
-        
-        <div class="button-group">
-            <!-- CONFIRM BUTTON is now part of the main group, visibility controlled by JS --><button id="confirm-adjustment-btn" class="btn" style="display: none;">Confirm Slot (Enter)</button>
 
-            <button id="change-template-btn" class="btn">Change Template</button> 
-            <button id="reset-mapping-btn" class="btn">Redo Current Map</button>
-            <!-- NEW: Undo and Redo buttons --><button id="undo-btn" class="btn">Undo</button>
-            <button id="redo-btn" class="btn">Redo</button>
-            <button id="start-mapped-btn" class="btn" style="display: none;">Start PhotoBooth</button>
+        <!-- Input Section --><div id="input-section" class="p-6 sm:p-8">
+            <!-- NEW: Creator Credit moved below "Enter a theme..." --><p class="text-xs text-gray-500 mb-4 text-center">
+                App developed by <span class="font-bold">David Jess F. Asauro - Teacher II, Odiongan National High School</span>
+            </p>
+            <!-- Theme Input Area --><div class="flex flex-col gap-4">
+                <textarea 
+                    id="theme-input"
+                    placeholder="e.g., Princess and the Brownies’ Friends"
+                    class="flex-grow w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    rows="2"
+                ></textarea>
+                <!-- Command Buttons --><div class="flex-shrink-0 flex gap-2 w-full">
+                    <button 
+                        id="surprise-btn"
+                        class="w-1/2 sm:w-auto px-4 py-3 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-wait flex-grow"
+                        title="Generate a random theme"
+                    >
+                        ✨ Surprise Me
+                    </button>
+                    <button 
+                        id="generate-btn"
+                        class="w-1/2 sm:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex-grow"
+                    >
+                        Generate
+                    </button>
+                </div>
+            </div>
+            <p id="error-message" class="text-red-500 text-sm mt-2 hidden"></p>
+
+            <!-- Image Upload Section --><div class="mt-4">
+                <input type="file" id="character-upload" class="hidden" accept="image/png, image/jpeg">
+                
+                <!-- Hidden by default, shown after upload --><div id="character-preview-container" class="hidden relative w-32 h-32 rounded-lg overflow-hidden shadow-md">
+                    <img id="character-preview-image" src="" alt="Character Preview" class="w-full h-full object-cover">
+                    <button id="clear-image-btn" class="absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-opacity-75 transition-all text-xs font-bold">
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Shown by default, hidden after upload --><label id="character-upload-label" for="character-upload" class="cursor-pointer inline-block px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                    Upload Character (Optional)
+                </label>
+            </div>
         </div>
-    </div>
 
-    <!-- View 2: Camera --><div id="camera-view" class="view" tabindex="0">
-        <!-- NEW: Close Camera Button --><button id="close-camera-btn" title="Exit to settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-        
-        <video id="video-preview" autoplay playsinline muted></video>
-        <div id="crop-frame-overlay"></div> <!-- NEW: Visual framing overlay --><div id="flash-overlay"></div> <!-- NEW: Photo Flash Overlay --><img id="photo-preview-overlay" /> 
-        <div id="photo-counter-overlay">0 / 4</div>
-        <div id="countdown-overlay">10</div>
-        <button id="capture-btn"></button>
-    </div>
-
-    <!-- View 3: Final Preview --><div id="preview-view" class="view">
-        <h2>That's Awesome</h2>
-        <canvas id="merge-canvas"></canvas>
-        <div class="button-group">
-            <button id="retake-btn" class="btn">Retake Photos</button>
-            <button id="remap-btn" class="btn" style="display: none;">Remap Template</button> 
-            <button id="save-btn" class="btn">Save Photo</button>
-        </div>
-    </div>
-
-    <!-- Hidden canvas for capturing frames --><canvas id="capture-canvas" style="display: none;"></canvas>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM Elements ---
-            const views = {
-                template: document.getElementById('template-view'),
-                mapping: document.getElementById('mapping-view'), 
-                camera: document.getElementById('camera-view'),
-                preview: document.getElementById('preview-view')
-            };
+        <!-- Results Section --><div id="results-container" class="p-6 sm:p-8 bg-gray-50 min-h-[400px] flex items-center justify-center">
             
-            // Template View
-            const templateInput = document.getElementById('template-input');
-            const fileNameEl = document.getElementById('file-name');
-            const startBtn = document.getElementById('start-btn');
-            const startNoTemplateBtn = document.getElementById('start-no-template-btn');
-            const cameraSelect = document.getElementById('camera-select'); 
-            const photoCountSelect = document.getElementById('photo-count-select'); 
-
-            // Mapping View
-            const mappingCanvas = document.getElementById('mapping-canvas');
-            const mappingCtx = mappingCanvas.getContext('2d');
-            const mappingInstructions = document.getElementById('mapping-instructions');
-            const resetMappingBtn = document.getElementById('reset-mapping-btn');
-            const changeTemplateBtn = document.getElementById('change-template-btn'); 
-            const startMappedBtn = document.getElementById('start-mapped-btn');
-            
-            // NEW: Undo/Redo buttons
-            const undoBtn = document.getElementById('undo-btn');
-            const redoBtn = document.getElementById('redo-btn');
-            
-            // NEW: Readout and Confirm elements
-            const adjustmentReadout = document.getElementById('adjustment-readout');
-            const rotationValueLabel = document.getElementById('rotation-value-label');
-            const scaleValueLabel = document.getElementById('scale-value-label');
-            const confirmAdjustmentBtn = document.getElementById('confirm-adjustment-btn');
-            
-            // Camera View
-            const cameraView = document.getElementById('camera-view'); // Added to reference the container
-            const videoEl = document.getElementById('video-preview');
-            const cropFrameOverlay = document.getElementById('crop-frame-overlay'); 
-            const flashOverlay = document.getElementById('flash-overlay'); // NEW
-            const captureBtn = document.getElementById('capture-btn');
-            const photoCounterEl = document.getElementById('photo-counter-overlay');
-            const countdownEl = document.getElementById('countdown-overlay');
-            const closeCameraBtn = document.getElementById('close-camera-btn'); 
-
-            // Preview View
-            const mergeCanvas = document.getElementById('merge-canvas');
-            const mergeCtx = mergeCanvas.getContext('2d');
-            const retakeBtn = document.getElementById('retake-btn');
-            const saveBtn = document.getElementById('save-btn');
-            const remapBtn = document.getElementById('remap-btn'); 
-
-            // Hidden Capture Canvas
-            const captureCanvas = document.getElementById('capture-canvas');
-            const captureCtx = captureCanvas.getContext('2d');
-
-            // --- State Variables ---
-            let stream = null;
-            let templateImage = new Image();
-            let useTemplate = false;
-            let capturedPhotos = [];
-            let photoCount = 0;
-            let countdownInterval = null;
-            const TARGET_ASPECT_RATIO = 16 / 9; // Target aspect ratio for the video stream (usually wide)
-            const CAPTURE_DELAY_MS = 10000; 
-            let numPhotosToTake = 4; // This is immediately overwritten by the select element value on load
-
-            // Mapping State
-            let photoSlots = []; 
-            let undoStack = []; 
-            let mappingState = { 
-                photoIndex: 1, 
-                clickCount: 0, // 0=wait P1, 1=wait P2, 2=wait adjustment/drag
-                startX: 0, startY: 0, 
-                tempX: 0, tempY: 0, 
-                tempSlot: null, // Holds { centerX, centerY, width, height, rotation, scale }
-                isDragging: false, 
-                dragOffsetX: 0,
-                dragOffsetY: 0,
-                // NEW: State for touch gestures
-                initialPinchDistance: null,
-                initialPinchAngle: null,
-                baseScale: 1,
-                baseRotation: 0
-            };
-
-            // --- Helper Functions ---
-            function showView(viewName) {
-                Object.values(views).forEach(v => v.style.display = 'none');
-                if (views[viewName]) {
-                    views[viewName].style.display = 'flex';
-                }
+            <!-- Loading Spinner (REPLACED with book animation) --><div id="loading-spinner" class="hidden text-center flex-col items-center justify-center">
                 
-                // CRITICAL: Ensure Camera view is focused when active for keyboard events
-                if (viewName === 'camera') {
-                    cameraView.focus();
-                }
-            }
-
-            async function enumerateCameras() {
-                cameraSelect.innerHTML = '<option value="">Loading cameras...</option>';
-                try {
-                    // Quick check for permissions first
-                    const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                    // Stop the temp stream immediately
-                    tempStream.getTracks().forEach(track => track.stop());
-
-                    cameraSelect.innerHTML = ''; 
-                    if (videoDevices.length === 0) {
-                        cameraSelect.innerHTML = '<option value="">No cameras found</option>';
-                    } else {
-                        videoDevices.forEach(device => {
-                            const option = document.createElement('option');
-                            option.value = device.deviceId;
-                            option.textContent = device.label || `Camera ${cameraSelect.options.length + 1}`;
-                            cameraSelect.appendChild(option);
-                        });
-                        if (videoDevices.length > 0) {
-                            cameraSelect.selectedIndex = 0;
-                        }
-                    }
-                } catch (err) {
-                    console.error("Error accessing camera:", err);
-                    cameraSelect.innerHTML = '<option value="">Camera access denied/failed</option>';
-                }
-            }
-
-            // --- 1. Template Upload Logic ---
-            templateInput.addEventListener('change', () => {
-                const file = templateInput.files[0];
-                if (file && file.type === 'image/png') {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        templateImage.src = e.target.result;
-                        templateImage.onload = () => {
-                            fileNameEl.textContent = file.name;
-                            startBtn.disabled = false;
-                        };
-                        templateImage.onerror = () => {
-                            fileNameEl.textContent = "Error: Could not load image.";
-                            startBtn.disabled = true;
-                        };
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    fileNameEl.textContent = "Please select a valid .png file.";
-                    startBtn.disabled = true;
-                }
-            });
-
-            // NEW: Listen for changes on the photo count select
-            photoCountSelect.addEventListener('change', () => {
-                numPhotosToTake = parseInt(photoCountSelect.value, 10);
-                // If user changes this while mapping, reset the mapping
-                if (views.mapping.style.display === 'flex') {
-                    setupMappingView(); 
-                }
-            });
-            
-            // Set initial value from the selector element
-            numPhotosToTake = parseInt(photoCountSelect.value, 10);
-
-
-            startBtn.addEventListener('click', () => {
-                useTemplate = true; 
-                setupMappingView(); 
-                showView('mapping');
-            });
-
-            startNoTemplateBtn.addEventListener('click', () => {
-                useTemplate = false; 
-                showView('camera');
-                startCamera();
-            });
-
-            // --- 1.5 Template Mapping Logic ---
-
-            function setupMappingView() {
-                photoSlots = [];
-                undoStack = []; // NEW: Clear undo stack
-                mappingState = { 
-                    photoIndex: 1, clickCount: 0, 
-                    startX: 0, startY: 0, tempX: 0, tempY: 0, 
-                    tempSlot: null, // Holds { centerX, centerY, width, height, rotation, scale }
-                    isDragging: false, 
-                    dragOffsetX: 0,
-                    dragOffsetY: 0,
-                    // NEW: Reset touch state
-                    initialPinchDistance: null, initialPinchAngle: null,
-                    baseScale: 1, baseRotation: 0
-                };
-                startMappedBtn.style.display = 'none';
-                confirmAdjustmentBtn.style.display = 'none'; // Ensure confirm is hidden
-                adjustmentReadout.classList.add('hidden'); // Ensure readout is hidden
-                mappingCanvas.style.cursor = 'crosshair'; 
-
-                // Set canvas size
-                const templateAspect = templateImage.width / templateImage.height;
-                const maxW = window.innerWidth * 0.95;
-                // Adjusted maxH to give more room for controls
-                const maxH = (window.innerHeight - 250); 
-
-                let displayW = maxW;
-                let displayH = maxW / templateAspect;
-
-                if (displayH > maxH || displayH < 100) { // Added min height check
-                    displayH = maxH;
-                    displayW = maxH * templateAspect;
-                }
-                
-                // Ensure canvas isn't wider than viewport
-                if (displayW > maxW) {
-                    displayW = maxW;
-                    displayH = maxW / templateAspect;
-                }
-
-                mappingCanvas.width = displayW;
-                mappingCanvas.height = displayH;
-                
-                mappingCtx.drawImage(templateImage, 0, 0, displayW, displayH);
-                updateMappingInstructions();
-                updateButtonStates(); 
-                
-                // FIX: Immediately focus the canvas for keyboard shortcuts
-                mappingCanvas.focus();
-            }
-
-            // NEW: Separate function to update button disabled states
-            function updateButtonStates() {
-                undoBtn.disabled = photoSlots.length === 0;
-                redoBtn.disabled = undoStack.length === 0;
-                startMappedBtn.style.display = (photoSlots.length === numPhotosToTake) ? 'block' : 'none'; 
-            }
-
-            function updateMappingInstructions() {
-                if (mappingState.photoIndex > numPhotosToTake) { 
-                    mappingInstructions.textContent = "Mapping Complete! Click 'Start PhotoBooth'.";
-                    startMappedBtn.style.display = 'block';
-                    mappingCanvas.style.cursor = 'default';
-                    confirmAdjustmentBtn.style.display = 'none';
-                    adjustmentReadout.classList.add('hidden');
-                    return;
-                }
-                
-                let step = "";
-                if (mappingState.clickCount === 0) {
-                    step = "Click **TOP-LEFT** corner.";
-                    mappingCanvas.style.cursor = 'crosshair';
-                    confirmAdjustmentBtn.style.display = 'none';
-                    adjustmentReadout.classList.add('hidden');
-                } else if (mappingState.clickCount === 1) {
-                    step = "Click **BOTTOM-RIGHT** corner. (ESC to cancel)";
-                    mappingCanvas.style.cursor = 'crosshair';
-                    confirmAdjustmentBtn.style.display = 'none';
-                    adjustmentReadout.classList.add('hidden');
-                } else if (mappingState.clickCount === 2) {
-                    // UPDATED instructions
-                    step = "Drag/Scroll to move/scale, SHIFT+Scroll to rotate. (ESC to cancel / ENTER to confirm)";
-                    mappingCanvas.style.cursor = 'move'; 
-                    confirmAdjustmentBtn.style.display = 'inline-block';
-                    adjustmentReadout.classList.remove('hidden');
-                }
-                
-                mappingInstructions.innerHTML = `Photo **${mappingState.photoIndex}/${numPhotosToTake}**: ${step}`; 
-            }
-
-            // NEW: Function to cancel the current in-progress selection
-            function cancelCurrentSelection() {
-                if (mappingState.clickCount === 1 || mappingState.clickCount === 2) {
-                    mappingState.clickCount = 0;
-                    mappingState.tempSlot = null;
-                    mappingState.isDragging = false;
-                    confirmAdjustmentBtn.style.display = 'none';
-                    adjustmentReadout.classList.add('hidden');
-                    updateMappingInstructions();
-                    drawCurrentMapping();
-                }
-            }
-
-            /**
-             * Helper function to draw a single rotated, scaled, transparent rectangle.
-             */
-            function drawRotatedRect(ctx, slot, scaleX, scaleY, color, label) {
-                const dispCX = slot.centerX * scaleX;
-                const dispCY = slot.centerY * scaleY;
-                // APPLY SCALE from slider
-                const dispW = (slot.width * scaleX) * slot.scale;
-                const dispH = (slot.height * scaleY) * slot.scale;
-
-                ctx.save();
-                ctx.translate(dispCX, dispCY);
-                ctx.rotate(slot.rotation);
-                
-                // Draw Box
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 4;
-                ctx.strokeRect(-dispW / 2, -dispH / 2, dispW, dispH);
-                
-                // Draw Label
-                ctx.fillStyle = color;
-                ctx.font = 'bold 24px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(label, 0, 0); 
-                
-                ctx.restore();
-            }
-
-            /**
-             * Redraws the mapping canvas with template and all slots.
-             */
-            function drawCurrentMapping() {
-                const displayW = mappingCanvas.width;
-                const displayH = mappingCanvas.height;
-                const scaleX = displayW / templateImage.width;
-                const scaleY = displayH / templateImage.height;
-
-                // Redraw template
-                mappingCtx.clearRect(0, 0, displayW, displayH);
-                mappingCtx.drawImage(templateImage, 0, 0, displayW, displayH);
-
-                // Draw finalized slots (yellow)
-                photoSlots.forEach((slot, index) => {
-                    drawRotatedRect(mappingCtx, slot, scaleX, scaleY, '#ffcc00', `Photo ${index + 1}`);
-                });
-
-                // Draw the slot currently being adjusted (red)
-                if (mappingState.clickCount === 2 && mappingState.tempSlot) {
-                    drawRotatedRect(mappingCtx, mappingState.tempSlot, scaleX, scaleY, 'red', `Photo ${mappingState.photoIndex}`);
-                }
-            }
-
-            
-            // --- NEW: Refactored Event Handlers for Touch + Mouse ---
-
-            // Gets normalized coordinates for both mouse and touch events
-            function getCoords(e) {
-                const rect = mappingCanvas.getBoundingClientRect();
-                let clientX, clientY;
-
-                if (e.touches) {
-                    clientX = e.touches[0].clientX;
-                    clientY = e.touches[0].clientY;
-                } else {
-                    clientX = e.clientX;
-                    clientY = e.clientY;
-                }
-
-                const canvasX = clientX - rect.left;
-                const canvasY = clientY - rect.top;
-                const scaleX = templateImage.width / mappingCanvas.width;
-                const scaleY = templateImage.height / mappingCanvas.height;
-                const originalX = canvasX * scaleX;
-                const originalY = canvasY * scaleY;
-                
-                return { canvasX, canvasY, originalX, originalY };
-            }
-
-            // Called on first and second click/tap
-            function handleMapClick(coords) {
-                // NEW: Clear redo stack as soon as user starts new action
-                undoStack = [];
-                updateButtonStates(); 
-
-                if (mappingState.clickCount === 0) {
-                    // First click: Define TOP-LEFT
-                    mappingState.startX = coords.originalX;
-                    mappingState.startY = coords.originalY;
-                    mappingState.tempX = coords.canvasX; 
-                    mappingState.tempY = coords.canvasY;
-                    mappingState.clickCount = 1;
-                    updateMappingInstructions();
-
-                } else if (mappingState.clickCount === 1) {
-                    // Second click: Define BOTTOM-RIGHT
-                    const endX = coords.originalX;
-                    const endY = coords.originalY;
-
-                    const x = Math.min(mappingState.startX, endX);
-                    const y = Math.min(mappingState.startY, endY);
-                    const w = Math.abs(mappingState.startX - endX);
-                    const h = Math.abs(mappingState.startY - endY);
-
-                    if (w < 10 || h < 10) {
-                        mappingInstructions.innerHTML = `Slot too small. Redo Photo **${mappingState.photoIndex}** (Click TOP-LEFT).`;
-                        mappingState.clickCount = 0; 
-                        drawCurrentMapping();
-                        return;
-                    }
-
-                    // Store this non-rotated box as the tempSlot
-                    mappingState.tempSlot = {
-                        centerX: x + w / 2,
-                        centerY: y + h / 2,
-                        width: w,
-                        height: h,
-                        rotation: 0,
-                        scale: 1 
-                    };
-                    
-                    mappingState.clickCount = 2; // Move to adjustment step
-                    updateMappingInstructions();
-                    drawCurrentMapping(); 
-                    
-                    rotationValueLabel.textContent = 'Rotation: 0°';
-                    scaleValueLabel.textContent = 'Scale: 100%';
-                    // visibility handled by updateMappingInstructions
-                }
-            }
-
-            // Called to start a drag (mousedown or 1-finger touch)
-            function startDrag(coords) {
-                if (mappingState.clickCount !== 2 || !mappingState.tempSlot) return;
-
-                // NEW: Clear redo stack as soon as user starts new action
-                undoStack = [];
-                updateButtonStates(); 
-
-                mappingState.isDragging = true;
-                const scaleX = mappingCanvas.width / templateImage.width;
-                const scaleY = mappingCanvas.height / templateImage.height;
-                
-                const dispCX = mappingState.tempSlot.centerX * scaleX;
-                const dispCY = mappingState.tempSlot.centerY * scaleY;
-                
-                mappingState.dragOffsetX = coords.canvasX - dispCX;
-                mappingState.dragOffsetY = coords.canvasY - dispCY;
-                mappingCanvas.style.cursor = 'grabbing';
-            }
-
-            // Called on mousemove or 1-finger touchmove
-            function handleDrag(coords) {
-                if (!mappingState.isDragging) return;
-
-                const scaleX = templateImage.width / mappingCanvas.width;
-                const scaleY = templateImage.height / mappingCanvas.height;
-
-                const newDispCX = coords.canvasX - mappingState.dragOffsetX;
-                const newDispCY = coords.canvasY - mappingState.dragOffsetY;
-                
-                mappingState.tempSlot.centerX = newDispCX * scaleX;
-                mappingState.tempSlot.centerY = newDispCY * scaleY;
-                
-                drawCurrentMapping();
-            }
-
-            // Called on 2-finger touchmove
-            function handlePinchRotate(t0, t1) {
-                if (!mappingState.tempSlot) return;
-
-                // NEW: Clear redo stack as soon as user starts new action
-                if (undoStack.length > 0) {
-                    undoStack = [];
-                    updateButtonStates();
-                }
-
-                // Calculate new distance and angle
-                const newDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-                const newAngle = Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX);
-
-                // --- Calculate Scale ---
-                const scaleDelta = newDist / mappingState.initialPinchDistance;
-                let newScale = mappingState.baseScale * scaleDelta; // Apply delta to base
-                newScale = Math.max(0.1, Math.min(newScale, 3.0)); // Clamp
-                mappingState.tempSlot.scale = newScale;
-                scaleValueLabel.textContent = `Scale: ${Math.round(newScale * 100)}%`;
-
-                // --- Calculate Rotation ---
-                const angleDelta = newAngle - mappingState.initialPinchAngle;
-                let newRotation = mappingState.baseRotation + angleDelta; // Apply delta to base
-                mappingState.tempSlot.rotation = newRotation;
-                rotationValueLabel.textContent = `Rotation: ${Math.round(newRotation * 180 / Math.PI)}°`;
-            }
-
-            // --- MOUSE LISTENERS ---
-            mappingCanvas.addEventListener('mousedown', (e) => {
-                if (mappingState.photoIndex > numPhotosToTake || e.button !== 0) return; 
-                e.preventDefault(); 
-                const coords = getCoords(e);
-
-                if (mappingState.clickCount < 2) {
-                    handleMapClick(coords);
-                } else {
-                    startDrag(coords);
-                }
-            });
-            
-            mappingCanvas.addEventListener('mousemove', (e) => {
-                const coords = getCoords(e);
-                if (mappingState.isDragging) {
-                    handleDrag(coords);
-                } else if (mappingState.clickCount === 1) {
-                    // Draw the temporary selection box
-                    drawCurrentMapping(); 
-                    const w = coords.canvasX - mappingState.tempX;
-                    const h = coords.canvasY - mappingState.tempY;
-                    mappingCtx.strokeStyle = 'red';
-                    mappingCtx.lineWidth = 2;
-                    mappingCtx.setLineDash([5, 5]); 
-                    mappingCtx.strokeRect(mappingState.tempX, mappingState.tempY, w, h);
-                    mappingCtx.setLineDash([]); 
-                }
-            });
-
-            mappingCanvas.addEventListener('mouseup', () => {
-                mappingState.isDragging = false;
-                if (mappingState.clickCount === 2) {
-                    updateMappingInstructions(); // Resets cursor to 'move'
-                }
-            });
-            
-            mappingCanvas.addEventListener('mouseleave', () => {
-                 mappingState.isDragging = false;
-                 if (mappingState.clickCount === 2) {
-                    updateMappingInstructions(); 
-                }
-            });
-
-            mappingCanvas.addEventListener('wheel', (e) => {
-                if (mappingState.clickCount !== 2 || !mappingState.tempSlot) return;
-                e.preventDefault(); 
-
-                // NEW: Clear redo stack as soon as user starts new action
-                if (undoStack.length > 0) {
-                    undoStack = [];
-                    updateButtonStates();
-                }
-
-                if (e.shiftKey) {
-                    // ROTATE
-                    const rotateAmount = e.deltaY > 0 ? -0.03 : 0.03;
-                    let newRotation = mappingState.tempSlot.rotation + rotateAmount;
-                    if (Math.abs(newRotation) < 0.03) newRotation = 0; // Snap
-                    mappingState.tempSlot.rotation = newRotation;
-                    rotationValueLabel.textContent = `Rotation: ${Math.round(newRotation * 180 / Math.PI)}°`;
-                } else {
-                    // SCALE
-                    const scaleAmount = e.deltaY > 0 ? -0.02 : 0.02;
-                    let newScale = mappingState.tempSlot.scale + scaleAmount;
-                    newScale = Math.max(0.1, Math.min(newScale, 3.0));
-                    if (Math.abs(newScale - 1.0) < 0.02) newScale = 1.0; // Snap
-                    mappingState.tempSlot.scale = newScale;
-                    scaleValueLabel.textContent = `Scale: ${Math.round(newScale * 100)}%`;
-                }
-                drawCurrentMapping();
-            });
-
-            // --- KEYBOARD LISTENER ---
-            mappingCanvas.addEventListener('keydown', (e) => {
-                // Ensure focus remains on the canvas
-                if (e.key === "Escape") {
-                    cancelCurrentSelection();
-                    e.preventDefault(); // Prevent browser default action
-                } else if (e.key === "Enter" && mappingState.clickCount === 2) {
-                    // Use the Enter key to confirm the slot adjustment
-                    confirmAdjustmentBtn.click();
-                    e.preventDefault(); // Prevent browser default action
-                }
-            });
-            
-            // NEW: Global keydown listener for Camera View ESCAPE key
-            document.addEventListener('keydown', (e) => {
-                if (views.camera.style.display === 'flex' && e.key === "Escape") {
-                    exitCamera();
-                    e.preventDefault();
-                }
-            });
-
-
-            // --- TOUCH LISTENERS ---
-            mappingCanvas.addEventListener('touchstart', (e) => {
-                if (mappingState.photoIndex > numPhotosToTake) return; 
-                e.preventDefault();
-                const touches = e.touches;
-                
-                if (mappingState.clickCount < 2) {
-                    const coords = getCoords(e);
-                    handleMapClick(coords);
-                } else {
-                    if (touches.length === 1) {
-                        const coords = getCoords(e);
-                        startDrag(coords);
-                    } else if (touches.length === 2) {
-                        // Start pinch/rotate
-                        // NEW: Clear redo stack
-                        undoStack = [];
-                        updateButtonStates(); 
-                        
-                        mappingState.isDragging = false; // Stop 1-finger drag
-                        const t0 = touches[0];
-                        const t1 = touches[1];
-                        
-                        mappingState.initialPinchDistance = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-                        mappingState.initialPinchAngle = Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX);
-                        mappingState.baseScale = mappingState.tempSlot.scale;
-                        mappingState.baseRotation = mappingState.tempSlot.rotation;
-                    }
-                }
-            });
-
-            mappingCanvas.addEventListener('touchmove', (e) => {
-                if (mappingState.photoIndex > numPhotosToTake) return; 
-                e.preventDefault();
-                const touches = e.touches;
-
-                if (mappingState.isDragging && touches.length === 1) {
-                    const coords = getCoords(e);
-                    handleDrag(coords);
-                } else if (mappingState.clickCount === 2 && touches.length === 2) {
-                    handlePinchRotate(touches[0], touches[1]);
-                } else if (mappingState.clickCount === 1 && touches.length === 1) {
-                    // Draw selection box on touch
-                    const coords = getCoords(e);
-                    drawCurrentMapping(); 
-                    const w = coords.canvasX - mappingState.tempX;
-                    const h = coords.canvasY - mappingState.tempY;
-                    mappingCtx.strokeStyle = 'red';
-                    mappingCtx.lineWidth = 2;
-                    mappingCtx.setLineDash([5, 5]); 
-                    mappingCtx.strokeRect(mappingState.tempX, mappingState.tempY, w, h);
-                    mappingCtx.setLineDash([]); 
-                }
-                
-                // Always redraw during touchmove if adjusting
-                if(mappingState.clickCount === 2) {
-                    drawCurrentMapping();
-                }
-            });
-
-            mappingCanvas.addEventListener('touchend', (e) => {
-                mappingState.isDragging = false;
-                
-                // If we were pinching, and one finger remains, start dragging
-                if (mappingState.clickCount === 2 && e.touches.length === 1) {
-                    const coords = getCoords(e); // Get coords from the *remaining* finger
-                    startDrag(coords);
-                } else if (e.touches.length === 0) {
-                    // Reset pinch state if all fingers are up
-                    mappingState.initialPinchDistance = null;
-                    mappingState.initialPinchAngle = null;
-                }
-
-                if (mappingState.clickCount === 2) {
-                    updateMappingInstructions(); // Resets cursor to 'move'
-                }
-            });
-
-
-            // --- Button Clicks ---
-            confirmAdjustmentBtn.addEventListener('click', () => {
-                if (!mappingState.tempSlot) return;
-                
-                photoSlots.push(mappingState.tempSlot);
-                
-                mappingState.tempSlot = null;
-                mappingState.clickCount = 0;
-                mappingState.photoIndex++;
-                
-                // Hide controls after confirmation
-                confirmAdjustmentBtn.style.display = 'none';
-                adjustmentReadout.classList.add('hidden');
-                
-                updateMappingInstructions();
-                drawCurrentMapping(); 
-                updateButtonStates(); 
-                mappingCanvas.focus(); // Re-focus after click
-            });
-            
-            changeTemplateBtn.addEventListener('click', () => {
-                showView('template'); 
-            });
-
-            resetMappingBtn.addEventListener('click', () => {
-                setupMappingView();
-            });
-
-            // NEW: Undo Button Logic
-            undoBtn.addEventListener('click', () => {
-                if (photoSlots.length > 0) {
-                    // Cancel any selection in progress
-                    cancelCurrentSelection();
-
-                    const undoneSlot = photoSlots.pop();
-                    undoStack.push(undoneSlot);
-                    mappingState.photoIndex--;
-
-                    updateMappingInstructions();
-                    drawCurrentMapping();
-                    updateButtonStates();
-                    mappingCanvas.focus(); // Re-focus after click
-                }
-            });
-
-            // NEW: Redo Button Logic
-            redoBtn.addEventListener('click', () => {
-                if (undoStack.length > 0) {
-                    // Cancel any selection in progress
-                    cancelCurrentSelection(); 
-
-                    const redoneSlot = undoStack.pop();
-                    photoSlots.push(redoneSlot);
-                    mappingState.photoIndex++;
-
-                    updateMappingInstructions();
-                    drawCurrentMapping();
-                    updateButtonStates();
-                    mappingCanvas.focus(); // Re-focus after click
-                }
-            });
-            
-            startMappedBtn.addEventListener('click', () => {
-                if (photoSlots.length === numPhotosToTake) { 
-                    showView('camera');
-                    startCamera();
-                }
-            });
-
-            // --- 2. Camera Logic ---
-            
-            // NEW: Function to stop camera and return to setup
-            function exitCamera() {
-                // Clear any running countdown
-                if (countdownInterval) {
-                    clearInterval(countdownInterval);
-                    countdownInterval = null; // Important: reset interval handle
-                    countdownEl.style.display = 'none';
-                }
-                
-                stopCamera();
-                
-                // Reset photo state
-                capturedPhotos = [];
-                photoCount = 0;
-                
-                // Hide crop overlay
-                cropFrameOverlay.style.display = 'none';
-                
-                // Determine target view
-                if (useTemplate) {
-                    // Return to mapping view, re-setting it up ensures state is clean
-                    setupMappingView();
-                    showView('mapping');
-                } else {
-                    // Return to template view
-                    showView('template');
-                }
-            }
-            
-            // Bind the new close button
-            closeCameraBtn.addEventListener('click', exitCamera);
-
-            async function startCamera() {
-                capturedPhotos = [];
-                photoCount = 0;
-                updatePhotoCounter();
-                captureBtn.style.display = 'block';
-                cropFrameOverlay.style.display = 'none'; // Hide overlay initially
-
-                try {
-                    if (stream) stopCamera();
-                    
-                    const selectedDeviceId = cameraSelect.value;
-                    const videoConstraints = {
-                        aspectRatio: TARGET_ASPECT_RATIO,
-                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined
-                    };
-
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: videoConstraints,
-                        audio: false
-                    });
-                    videoEl.srcObject = stream;
-                    await videoEl.play();
-                } catch (err) {
-                    console.error("Error accessing camera:", err);
-                    if (err.name === "NotAllowedError" || err.name === "NotFoundError") {
-                         fileNameEl.textContent = "Error: Camera permission denied or camera not found.";
-                    } else {
-                         fileNameEl.textContent = "Error: Could not access camera.";
-                    }
-                    stopCamera();
-                    enumerateCameras(); 
-                    showView('template');
-                }
-            }
-            
-            function stopCamera() {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
-                }
-                videoEl.srcObject = null;
-                videoEl.pause();
-            }
-
-            // Helper function to get the target aspect ratio for the current photo slot
-            function getCurrentRequiredAspectRatio() {
-                if (useTemplate && photoCount < numPhotosToTake) {
-                    const slot = photoSlots[photoCount];
-                    // Ensure width/height are non-zero
-                    return slot.width / slot.height; 
-                }
-                // Default to the wide ratio (for non-template capture)
-                return TARGET_ASPECT_RATIO;
-            }
-
-            /**
-             * Calculates the actual visible dimensions of the video element (the white area, excluding black bars).
-             * @returns {{dispW: number, dispH: number}} Displayed dimensions.
-             */
-            function getVideoDisplayDimensions() {
-                const viewportW = window.innerWidth;
-                const viewportH = window.innerHeight;
-                // We request the video stream to be TARGET_ASPECT_RATIO (16/9), so we use that for calculation.
-                const streamRatio = TARGET_ASPECT_RATIO; 
-
-                let dispW, dispH;
-                
-                // object-fit: contain logic: Find the limiting factor (width or height)
-                if (viewportW / viewportH > streamRatio) {
-                    // Viewport is wider than stream: height is limiting factor
-                    dispH = viewportH;
-                    dispW = viewportH * streamRatio;
-                } else {
-                    // Viewport is taller than stream: width is limiting factor
-                    dispW = viewportW;
-                    dispH = viewportW / streamRatio;
-                }
-                
-                return { dispW, dispH };
-            }
-
-            /**
-             * Function to visually frame the crop area based on the current slot's aspect ratio.
-             */
-            function updateCameraCropVisual() {
-                // Only show the crop visual if we are using a template and still taking photos
-                if (!useTemplate || photoCount >= numPhotosToTake) {
-                    cropFrameOverlay.style.display = 'none';
-                    return;
-                }
-
-                const requiredRatio = getCurrentRequiredAspectRatio();
-                const { dispW, dispH } = getVideoDisplayDimensions(); // Use actual displayed video dimensions
-                
-                let frameW, frameH;
-                
-                // We maximize the frame to fill the largest possible area within the video feed
-                // while maintaining the required aspect ratio.
-                if (dispW / dispH > requiredRatio) {
-                    // Displayed video area is wider than required frame: height is limiting factor for the frame
-                    frameH = dispH; 
-                    frameW = dispH * requiredRatio;
-                } else {
-                    // Displayed video area is taller than required frame: width is limiting factor for the frame
-                    frameW = dispW;
-                    frameH = dispW / requiredRatio;
-                }
-                
-                // Ensure frame is always constrained by the display dimensions (redundant, but safe)
-                frameW = Math.min(frameW, dispW);
-                frameH = Math.min(frameH, dispH);
-
-                cropFrameOverlay.style.width = `${frameW}px`;
-                cropFrameOverlay.style.height = `${frameH}px`;
-                cropFrameOverlay.style.display = 'block';
-            }
-            
-            captureBtn.addEventListener('click', () => {
-                if (videoEl.paused || videoEl.readyState < 3) {
-                     console.warn("Capture button clicked before stream was ready.");
-                     return; 
-                }
-                captureBtn.style.display = 'none'; 
-                startCountdown();
-            });
-
-            function startCountdown() {
-                let count = CAPTURE_DELAY_MS / 1000; 
-                
-                if (countdownInterval) clearInterval(countdownInterval);
-
-                countdownEl.style.display = ''; 
-                countdownEl.textContent = count;
-                triggerCountdownAnimation();
-                
-                // NEW: Update visual crop based on the next photo slot
-                updateCameraCropVisual();
-
-                countdownInterval = setInterval(() => {
-                    count--;
-                    if (count > 0) {
-                        countdownEl.textContent = count;
-                        triggerCountdownAnimation();
-                    } else {
-                        clearInterval(countdownInterval);
-                        countdownInterval = null;
-                        countdownEl.textContent = ''; // CHANGED from '📸'
-                        triggerCountdownAnimation();
-                        
-                        // Hide the crop frame overlay immediately before taking the shot
-                        cropFrameOverlay.style.display = 'none';
-
-                        // NEW: Trigger the flash before photo is taken
-                        flashOverlay.classList.add('flash-animation');
-                        setTimeout(() => {
-                            flashOverlay.classList.remove('flash-animation');
+                <!-- New Book Loader HTML --><div class="loader">
+                    <div>
+                        <ul>
+                            <!-- The flipping pages -->
+                            <li>
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120"></svg>
+                            </li>
+                            <li>
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120"></svg>
+                            </li>
+                            <li>
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120"></svg>
+                            </li>
+                            <li>
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120"></svg>
+                            </li>
+                            <li>
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120"></svg>
+                            </li>
+                            <!-- The back cover / last page -->
+                            <li>
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120"></svg>
+                            </li>
+                        </ul>
+                    </div>
+                    <span id="loading-message" class="text-gray-600 mt-4">Generating your story...</span>
+                </div>
+            </div>
+
+            <!-- Story Output (Initially hidden) --><div id="story-output" class="hidden w-full relative">
+                <!-- Book Container (Image Left, Text Right on md screens and up) --><div id="book-container" class="bg-white rounded-lg shadow-xl overflow-hidden border border-gray-200 flex flex-col md:flex-row page-transition-wrapper">
+                    <!-- Page 1: Illustration --><div id="book-image-pane" class="w-full md:w-1/2 page-transition-wrapper">
+                        <img 
+                            id="story-image" 
+                            src="https://placehold.co/600x400/eeeeee/cccccc?text=Illustration" 
+                            alt="Story illustration"
+                            class="w-full h-64 md:h-96 object-cover"
+                        >
+                    </div>
+                    <!-- Page 2: Text (Now a flex column) --><div id="book-text-pane" class="w-full md:w-1/2 flex relative flex-col">
+                        <p 
+                            id="story-text" 
+                            class="p-6 md:p-8 text-gray-800 text-xl leading-relaxed min-h-[150px] md:h-96 overflow-y-auto w-full flex-grow flex flex-col justify-center"
+                        >
+                            Your story will appear here.
+                        </p>
+
+                        <!-- NEW: Image Prompt Editor (Hidden by default, shown by button) --><div id="image-prompt-editor" class="hidden bg-gray-50 flex-shrink-0 pt-4 border-t border-gray-200">
+                            <label for="image-prompt-input" class="block text-sm font-medium text-gray-700 px-4 mb-1">Edit Image Prompt:</label>
+                            <textarea 
+                                id="image-prompt-input"
+                                rows="2"
+                                class="w-full px-4 pb-4 pt-0 border-0 focus:outline-none focus:ring-0 resize-none text-sm bg-gray-50"
+                                placeholder="Customize the illustration prompt here..."
+                            ></textarea>
                             
-                            // Continue to photo capture
-                            countdownEl.style.display = 'none'; 
-                            takePhoto();
-                        }, 300); // 300ms is the duration of the flash animation
-                    }
-                }, 1000);
-            }
+                            <!-- NEW: Generate Button inside editor --><div class="flex justify-center p-2 pt-0">
+                                <button id="generate-new-image-btn" class="px-6 py-2 bg-blue-500 text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center">
+                                    Generate Image
+                                </button>
+                                <div id="generate-new-image-spinner" class="spinner w-6 h-6 border-2 border-gray-100 border-t-blue-500 rounded-full mx-auto hidden mt-2"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Re-added Read Aloud Button Container (with Recreate Button) --><div id="original-read-aloud-container" class="p-4 border-t border-gray-200 flex justify-center gap-4 flex-shrink-0">
+                            
+                            <!-- NEW: Recreate Image Button (Standard) --><!-- ICON REMOVED --><button id="recreate-image-btn" class="px-4 py-2 bg-yellow-500 text-white font-bold rounded-lg shadow-lg hover:bg-yellow-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center" title="Recreate Image for this Page" disabled>
+                                <div class="flex items-center">
+                                    Recreate Image
+                                </div>
+                                <div id="recreate-spinner" class="spinner w-5 h-5 border-2 border-gray-100 border-t-yellow-500 rounded-full mx-auto hidden"></div>
+                            </button>
 
-            function triggerCountdownAnimation() {
-                countdownEl.classList.remove('animate');
-                void countdownEl.offsetWidth; 
-                countdownEl.classList.add('animate');
-            }
+                            <!-- Read Aloud Button (Standard) --><button id="read-aloud-btn" class="p-3 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" title="Read Page Aloud" disabled>
+                                <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                                    <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.777-2.09 3.028-1.293l11.53 7.713c1.29 0.864 1.29 2.574 0 3.438l-11.53 7.713c-1.251 0.797-3.028 0.133-3.028-1.293V5.653Z" clip-rule="evenodd" />
+                                </svg>
+                                <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 hidden">
+                                    <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
+                                </svg>
+                                <div id="read-aloud-spinner" class="spinner w-6 h-6 border-2 border-gray-100 border-t-red-500 rounded-full mx-auto hidden"></div>
+                            </button>
+                        </div>
 
-            function takePhoto() {
-                const photoPreviewEl = document.getElementById('photo-preview-overlay');
+                        <!-- NEW: Fullscreen Navigation Bar Wrapper (for idle timer) --><div id="fullscreen-nav-bar-wrapper" class="hidden">
+                            <div id="fullscreen-nav-bar" class="bg-black bg-opacity-70 p-4 z-50 flex justify-between items-center backdrop-blur-sm">
+                                <!-- FS Previous Button --><button 
+                                    id="fs-prev-btn"
+                                    class="px-5 py-2 bg-gray-300 text-white font-semibold rounded-lg shadow hover:bg-gray-400 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Previous
+                                </button>
+                                
+                                <!-- FS Center Controls (Read Aloud, Recreate, Page Indicator) --><div class="flex items-center gap-4">
+                                    
+                                    <!-- FS Read Aloud Button --><button id="fs-read-aloud-btn" class="p-3 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" title="Auto Play Story">
+                                        <svg id="fs-play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                                            <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.777-2.09 3.028-1.293l11.53 7.713c1.29 0.864 1.29 2.574 0 3.438l-11.53 7.713c-1.251 0.797-3.028 0.133-3.028-1.293V5.653Z" clip-rule="evenodd" />
+                                        </svg>
+                                        <svg id="fs-pause-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 hidden">
+                                            <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H7.5a.75.75 0 0 1-.75-.75V5.25Zm7.5 0A.75.75 0 0 1 15 4.5h1.5a.75.75 0 0 1 .75.75v13.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75V5.25Z" clip-rule="evenodd" />
+                                        </svg>
+                                        <div id="fs-read-aloud-spinner" class="spinner w-6 h-6 border-2 border-gray-100 border-t-red-500 rounded-full mx-auto hidden"></div>
+                                    </button>
 
-                const videoW = videoEl.videoWidth;
-                const videoH = videoEl.videoHeight;
-                const videoAspect = videoW / videoH;
-
-                let requiredAspectRatio = getCurrentRequiredAspectRatio(); // Use helper function
-                
-                let sX = 0, sY = 0, sW = videoW, sH = videoH;
-
-                // Crop the video stream based on the required aspect ratio
-                if (videoAspect > requiredAspectRatio) {
-                    // Video is wider than required ratio (e.g., 16:9 video for 1:1 slot), crop sides
-                    sW = videoH * requiredAspectRatio;
-                    sX = (videoW - sW) / 2;
-                } else if (videoAspect < requiredAspectRatio) {
-                    // Video is taller than required ratio (e.g., 1:1 slot for a 9:16 vertical video), crop top/bottom
-                    sH = videoW / requiredAspectRatio;
-                    sY = (videoH - sH) / 2;
-                }
-                // If videoAspect == requiredAspectRatio, no cropping needed.
-
-                captureCanvas.width = sW;
-                captureCanvas.height = sH;
-
-                // --- MIRROR CAPTURE LOGIC ---
-                captureCtx.save();
-                captureCtx.translate(sW, 0); 
-                captureCtx.scale(-1, 1); 
-                captureCtx.drawImage(videoEl, sX, sY, sW, sH, 0, 0, sW, sH);
-                captureCtx.restore(); 
-                // --- END MIRROR CAPTURE LOGIC ---
-
-                const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
-                capturedPhotos.push(currentPhotoDataUrl);
-                photoCount++;
-                updatePhotoCounter();
-
-                photoPreviewEl.src = currentPhotoDataUrl;
-                
-                // NEW: Generate random tilt
-                const randomTilt = Math.random() * 6 - 3; // Generates a number between -3 and 3
-                
-                // Apply the random tilt via style property. This will override the class's rotate.
-                // The transition will use this as the "to" state.
-                photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`;
-                
-                photoPreviewEl.classList.add('show-preview'); // NEW
-
-                setTimeout(() => {
-                    photoPreviewEl.classList.remove('show-preview'); // NEW
-                    
-                    // NEW: Reset the inline transform so it can animate back to the base state
-                    // defined in #photo-preview-overlay
-                    photoPreviewEl.style.transform = ''; 
-                    
-                    photoPreviewEl.src = '';
-
-                    if (photoCount < numPhotosToTake) { 
-                        startCountdown(); // Loop starts here and calls updateCameraCropVisual
-                    } else {
-                        stopCamera();
-                        createFinalImage();
-                    }
-                }, 2000);
-            }
-
-            function updatePhotoCounter() {
-                photoCounterEl.textContent = `${photoCount} / ${numPhotosToTake}`; 
-            }
-
-            // --- 3. Final Image & Preview Logic ---
+                                    <!-- NEW: Recreate Image Button (Fullscreen) --><!-- ICON REMOVED --><button id="fs-recreate-image-btn" class="px-4 py-2 bg-yellow-500 text-white font-bold rounded-lg shadow-lg hover:bg-yellow-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center" title="Recreate Image for this Page" disabled>
+                                        <div class="flex items-center">
+                                            Recreate Image
+                                        </div>
+                                        <div id="fs-recreate-spinner" class="spinner w-5 h-5 border-2 border-gray-100 border-t-yellow-500 rounded-full mx-auto hidden"></div>
+                                    </button>
             
-            function createFinalImage() {
-                showView('preview');
-
-                let imagesLoaded = 0;
-                const photoImages = [];
-
-                capturedPhotos.forEach((dataURL, index) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        imagesLoaded++;
-                        if (imagesLoaded === capturedPhotos.length) { 
-                            if (useTemplate) {
-                                drawWithTemplate(photoImages);
-                            } else {
-                                drawWithoutTemplate(photoImages);
-                            }
-                        }
-                    };
-                    img.src = dataURL;
-                    photoImages[index] = img;
-                });
-                
-                if (useTemplate) {
-                    remapBtn.style.display = 'block';
-                } else {
-                    remapBtn.style.display = 'none';
-                }
-            }
-
-            function drawWithoutTemplate(photoImages) {
-                const photoW = photoImages[0].width;
-                const photoH = photoImages[0].height;
-                mergeCanvas.width = photoW;
-                mergeCanvas.height = photoH * numPhotosToTake; 
-                mergeCtx.clearRect(0, 0, mergeCanvas.width, mergeCanvas.height);
-                
-                photoImages.forEach((img, index) => {
-                     mergeCtx.drawImage(img, 0, photoH * index, photoW, photoH);
-                });
-            }
-
-            function drawWithTemplate(photoImages) {
-                const templateW = templateImage.width;
-                const templateH = templateImage.height;
-                mergeCanvas.width = templateW;
-                mergeCanvas.height = templateH;
-                mergeCtx.clearRect(0, 0, templateW, templateH);
-
-                const photoCoords = photoSlots;
-                
-                // 1. Draw all photos, each inside its own rotated/clipped mask
-                photoImages.forEach((img, index) => {
-                    if (!photoCoords[index]) return; 
-                    
-                    const coords = photoCoords[index];
-                    
-                    mergeCtx.save(); 
-                    
-                    // --- A: Create the clipping path based on user's slot ---
-                    mergeCtx.translate(coords.centerX, coords.centerY);
-                    mergeCtx.rotate(coords.rotation);
-
-                    // APPLY SCALE to the clipping path dimensions
-                    const scaledWidth = coords.width * coords.scale;
-                    const scaledHeight = coords.height * coords.scale;
-
-                    mergeCtx.beginPath();
-                    mergeCtx.rect(-scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
-                    mergeCtx.clip();
-
-                    // --- B: Draw the photo to "cover" this new scaled/clipped area ---
-                    const targetW = scaledWidth;
-                    const targetH = scaledHeight;
-                    const targetAspect = targetW / targetH;
-                    
-                    const sourceW = img.width;
-                    const sourceH = img.height;
-                    const sourceAspect = sourceW / sourceH; // This is now dynamically set during capture
-                    
-                    let sX = 0, sY = 0, sW = sourceW, sH = sourceH;
-
-                    // Standard "object-fit: cover" logic. Note: Since sourceAspect should match targetAspect now, 
-                    // this logic mostly ensures the image is scaled to fit the *size* of the slot area.
-                    // If targetAspect and sourceAspect are exactly equal, the crop logic here should result in full image being used.
-                    if (sourceAspect > targetAspect) {
-                        sH = sourceH;
-                        sW = sourceH * targetAspect;
-                        sX = (sourceW - sW) / 2;
-                    } else {
-                        sW = sourceW;
-                        sH = sourceW / targetAspect;
-                        sY = (sourceH - sH) / 2;
-                    }
-
-                    // Draw the cropped source image into the centered, rotated, scaled destination
-                    mergeCtx.drawImage(img, sX, sY, sW, sH, -targetW / 2, -targetH / 2, targetW, targetH);
-                    
-                    mergeCtx.restore(); 
-                });
-
-                // 2. Draw the PNG template OVER everything
-                mergeCtx.drawImage(templateImage, 0, 0, templateW, templateH);
-            }
-
-            retakeBtn.addEventListener('click', () => {
-                showView('camera');
-                startCamera(); 
-            });
-
-            remapBtn.addEventListener('click', () => {
-                if (useTemplate) {
-                    showView('mapping');
-                    setupMappingView(); 
-                }
-            });
-
-            saveBtn.addEventListener('click', () => {
-                const dataURL = mergeCanvas.toDataURL('image/png');
-                const link = document.createElement('a');
-                link.download = 'photobooth-strip.png';
-                link.href = dataURL;
-                link.click();
-            });
-
-            // --- Initial State ---
-            showView('template');
-            enumerateCameras(); 
+                                    <!-- FS Page Indicator --><span id="fs-page-indicator" class="text-white font-medium">
+                                        Page 1 / 1
+                                    </span>
+                                </div>
             
-            // Re-setup mapping view on resize to keep canvas dimensions correct
-            window.addEventListener('resize', () => {
-                if (views.mapping.style.display === 'flex' && templateImage.src) {
-                    // This will redraw the template and all confirmed slots correctly
-                    setupMappingView(); 
-                }
-                if (views.camera.style.display === 'flex') {
-                    // Update crop visual if user resizes the window while on camera screen
-                    updateCameraCropVisual();
-                }
-            });
+                                <!-- FS Next Button --><button 
+                                    id="fs-next-btn"
+                                    class="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
+                <!-- Navigation (Original) --><div id="nav-container" class="mt-4 flex justify-between items-center">
+                    <button 
+                        id="prev-btn"
+                        class="px-5 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow hover:bg-gray-400 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Previous
+                    </button>
+                    <span id="page-indicator" class="text-gray-700 font-medium">
+                        Page 1 / 1
+                    </span>
+                    
+                    <!-- Wrapper for right-side buttons --><div class="flex items-center gap-2">
+                        <button 
+                            id="next-btn"
+                            class="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Next
+                        </button>
+                        <button 
+                            id="fullscreen-btn"
+                            class="p-2 bg-gray-300 text-gray-800 rounded-lg shadow hover:bg-gray-400 transition-colors"
+                            title="Toggle Fullscreen"
+                        >
+                            <!-- Expand Icon --><svg id="expand-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                            </svg>
+                            <!-- Compress Icon (hidden by default) --><svg id="compress-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 hidden">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Download and Auto Play Buttons (Revised) --><div id="download-container" class="mt-6 text-center flex justify-center gap-4 hidden">
+                    <!-- Re-added Auto Play button --><button
+                        id="autoplay-btn"
+                        class="px-6 py-2 bg-pink-600 text-white font-bold rounded-lg shadow-md hover:bg-pink-700 transition-colors duration-200 disabled:bg-pink-300 disabled:cursor-not-allowed flex items-center justify-center"
+                        title="Automatically read and advance all pages"
+                        disabled
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113c-.499.274-.752-.04-.752-.656V8.559c0-.616.253-.93.752-.656l5.603 3.113Z" />
+                        </svg>
+                        Auto Play
+                    </button>
+                    <button
+                        id="download-btn"
+                        class="px-6 py-2 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 disabled:bg-green-300 disabled:cursor-wait"
+                        title="Download the full story as a PDF"
+                    >
+                        Download Book (PDF)
+                    </button>
+                    
+                    <!-- NEW: Download Media ZIP Button (Renamed for clarity) --><button 
+                        id="download-media-zip-btn"
+                        class="px-6 py-2 bg-gray-600 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 transition-colors duration-200 disabled:bg-gray-400"
+                        title="Download all images and audio for manual video creation"
+                        disabled
+                    >
+                        Download Assets for Video (ZIP)
+                    </button>
+                </div>
+
+                <!-- NEW: Close Button for Fullscreen --><button id="fullscreen-close-btn" class="hidden fixed top-4 right-4 z-50 p-3 bg-gray-900 text-white rounded-full opacity-75 hover:opacity-100 transition-opacity" title="Exit Fullscreen (Escape)">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                <!-- Fullscreen Navigation Bar was MOVED from here inside the #book-text-pane --></div>
+
+        </div>
+    </div>
+
+    <!-- NEW: Cropping Modal Structure --><div id="crop-modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl p-6 shadow-2xl max-w-lg w-full">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Crop Character Image (1:1 Aspect)</h2>
+            <div class="relative flex justify-center items-center bg-gray-100 border border-gray-300 rounded-md overflow-hidden">
+                <!-- Canvas will be drawn here --><canvas id="crop-canvas" class="cursor-grab"></canvas>
+            </div>
+
+            <!-- NEW: Zoom Controls --><div class="flex justify-center items-center mt-4 gap-4">
+                <button id="zoom-out-btn" class="p-2 bg-gray-200 text-gray-800 rounded-lg shadow hover:bg-gray-300 transition-colors" title="Zoom Out (Show More)">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                </button>
+                <button id="zoom-in-btn" class="p-2 bg-gray-200 text-gray-800 rounded-lg shadow hover:bg-gray-300 transition-colors" title="Zoom In (Show Less)">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                </button>
+            </div>
             
+            <p class="text-sm text-gray-600 mt-4 text-center">Drag the square crop box to select your character's focus area.</p>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="cancel-crop-btn" class="px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition-colors">Cancel</button>
+                <button id="crop-save-btn" class="px-4 py-2 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 transition-colors">Crop & Save</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- 3rd Party Libs ---
+        const { jsPDF } = window.jspdf;
+        const JSZip = window.JSZip; // Access the loaded JSZip library
+        const PAUSE_DELAY_MS = 1500; // Pause between pages in autoplay
+        const ANIMATION_DURATION = 500; // Match CSS animation time
+        const IDLE_TIMEOUT = 4000; // 4 seconds of inactivity before hiding nav
+
+        // --- DOM Elements ---
+        const mainAppCard = document.getElementById('main-app-card');
+        const headerSection = document.getElementById('header-section');
+        const inputSection = document.getElementById('input-section');
+        const resultsContainer = document.getElementById('results-container');
+        const bookTextPane = document.getElementById('book-text-pane'); // Added for event listener
+
+        const themeInput = document.getElementById('theme-input');
+        const generateBtn = document.getElementById('generate-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const loadingMessage = document.getElementById('loading-message');
+        const storyOutput = document.getElementById('story-output');
+        const bookContainer = document.getElementById('book-container');
+        const storyImage = document.getElementById('story-image');
+        const storyText = document.getElementById('story-text');
+        const errorMessage = document.getElementById('error-message');
+        const navContainer = document.getElementById('nav-container');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const pageIndicator = document.getElementById('page-indicator');
+        const downloadContainer = document.getElementById('download-container');
+        const downloadBtn = document.getElementById('download-btn');
+        const characterUploadInput = document.getElementById('character-upload');
+        const characterUploadLabel = document.getElementById('character-upload-label');
+        const characterPreviewContainer = document.getElementById('character-preview-container');
+        const characterPreviewImage = document.getElementById('character-preview-image'); 
+        const clearImageBtn = document.getElementById('clear-image-btn');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const expandIcon = document.getElementById('expand-icon');
+        const compressIcon = document.getElementById('compress-icon');
+        const surpriseBtn = document.getElementById('surprise-btn');
+        const fullscreenCloseBtn = document.getElementById('fullscreen-close-btn'); 
+
+        // New/Re-added Audio DOM Elements
+        const originalReadAloudContainer = document.getElementById('original-read-aloud-container');
+        const readAloudBtn = document.getElementById('read-aloud-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const readAloudSpinner = document.getElementById('read-aloud-spinner');
+        const autoplayBtn = document.getElementById('autoplay-btn');
+        
+        // NEW: Recreate Image DOM Elements (Standard)
+        const recreateImageBtn = document.getElementById('recreate-image-btn');
+        const recreateSpinner = document.getElementById('recreate-spinner');
+        // const recreateIcon = document.getElementById('recreate-icon'); // ICON REMOVED
+        
+        // NEW: Image Prompt Editor DOM Elements
+        const imagePromptEditor = document.getElementById('image-prompt-editor');
+        const imagePromptInput = document.getElementById('image-prompt-input');
+        const generateNewImageBtn = document.getElementById('generate-new-image-btn');
+        const generateNewImageSpinner = document.getElementById('generate-new-image-spinner');
+
+        // NEW: Fullscreen Nav DOM Elements
+        const fullscreenNavBarWrapper = document.getElementById('fullscreen-nav-bar-wrapper'); 
+        const fullscreenNavBar = document.getElementById('fullscreen-nav-bar');
+        const fsPrevBtn = document.getElementById('fs-prev-btn');
+        const fsNextBtn = document.getElementById('fs-next-btn');
+        const fsPageIndicator = document.getElementById('fs-page-indicator');
+        const fsReadAloudBtn = document.getElementById('fs-read-aloud-btn');
+        const fsPlayIcon = document.getElementById('fs-play-icon');
+        const fsPauseIcon = document.getElementById('fs-pause-icon');
+        const fsReadAloudSpinner = document.getElementById('fs-read-aloud-spinner');
+        
+        // NEW: Recreate Image DOM Elements (Fullscreen)
+        const fsRecreateImageBtn = document.getElementById('fs-recreate-image-btn');
+        const fsRecreateSpinner = document.getElementById('fs-recreate-spinner');
+        // const fsRecreateIcon = document.getElementById('fs-recreate-icon'); // ICON REMOVED
+        
+        // NEW: Download Media ZIP Button
+        const downloadMediaZipBtn = document.getElementById('download-media-zip-btn');
+
+
+        // --- Cropping State and DOM Elements (NEW) ---
+        const cropModal = document.getElementById('crop-modal');
+        const cropCanvas = document.getElementById('crop-canvas');
+        const cropSaveBtn = document.getElementById('crop-save-btn');
+        const cancelCropBtn = document.getElementById('cancel-crop-btn');
+        const cropCtx = cropCanvas.getContext('2d');
+        const zoomInBtn = document.getElementById('zoom-in-btn'); // NEW
+        const zoomOutBtn = document.getElementById('zoom-out-btn'); // NEW
+
+
+        let cropImage = new Image();
+        let cropArea = { x: 0, y: 0, size: 0 }; // Stores the crop box position/size in canvas coordinates
+        let isDragging = false;
+        let dragStartX, dragStartY; // Starting click position relative to the crop box
+
+        // Constants derived in showCropModal to constrain the crop area size/position
+        let scaledImageConstraints = {}; 
+
+        // --- App State ---
+        let storyPages = [];
+        let currentPage = 0;
+        let uploadedCharacter = { base64Data: null, mimeType: null };
+        let isAnimating = false; // Flag to prevent multiple clicks during animation
+
+        // State to track if the theme was manually edited or generated by surprise.
+        let themeSource = 'user'; // 'user' (typed/edited) or 'surprise' (generated)
+        let globalCharacterDescription = null; // NEW: To store character description for T2I regeneration
+
+        // New/Re-added Audio State
+        let audioPlayer = new Audio();
+        let isPlaying = false;
+        let isAutoPlayActive = false;
+        let advanceTimer = null;
+        
+        // NEW: Fullscreen Idle Timer
+        let idleTimer = null;
+
+
+        // --- API Configuration ---
+        const apiKey = "";
+        const textGenerationUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        const imageGenerationUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+        const imageToImageUrl = imageGenerationUrl; 
+        const ttsGenerationUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+
+        // --- Event Listeners ---
+        generateBtn.addEventListener('click', handleGenerateStory);
+        surpriseBtn.addEventListener('click', handleSurpriseMe);
+        prevBtn.addEventListener('click', () => showPreviousPage('prev')); 
+        nextBtn.addEventListener('click', () => showNextPage('next')); 
+        characterUploadInput.addEventListener('change', handleImageUpload);
+        clearImageBtn.addEventListener('click', clearUploadedImage);
+        downloadBtn.addEventListener('click', downloadStoryAsPdf);
+        downloadMediaZipBtn.addEventListener('click', downloadAllMediaAsZip); // NEW LISTENER
+        fullscreenBtn.addEventListener('click', toggleFullScreen);
+        fullscreenCloseBtn.addEventListener('click', toggleFullScreen); 
+        
+        // Listener to mark the theme as 'user' input the moment the user types anything.
+        themeInput.addEventListener('input', () => {
+            if (themeInput.value.trim().length > 0) {
+                themeSource = 'user';
+            } else {
+                // If the user clears the box, reset to 'user' and the button will become 'Surprise Me'
+                themeSource = 'user'; 
+            }
+            updateSurpriseButton();
         });
+        
+        // Re-added Audio Event Listeners
+        readAloudBtn.addEventListener('click', handleReadAloud);
+        autoplayBtn.addEventListener('click', handleAutoPlayToggle);
+        
+        // NEW: Recreate Image Event Listeners
+        recreateImageBtn.addEventListener('click', togglePromptEditor); // Use togglePromptEditor
+        fsRecreateImageBtn.addEventListener('click', togglePromptEditor); // Use togglePromptEditor
+        
+        // NEW: Separate Generate Image Button listener
+        generateNewImageBtn.addEventListener('click', recreateImage);
+        
+        // NEW: Fullscreen Nav Event Listeners
+        fsPrevBtn.addEventListener('click', () => showPreviousPage('prev'));
+        fsNextBtn.addEventListener('click', () => showNextPage('next'));
+        fsReadAloudBtn.addEventListener('click', handleAutoPlayToggle);
+
+
+        // NEW: Escape key listener
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'Escape' && mainAppCard.classList.contains('simulated-fullscreen')) {
+                toggleFullScreen();
+            }
+        });
+
+        // Cropping Modal Event Listeners (NEW)
+        cancelCropBtn.addEventListener('click', hideCropModal);
+        cropSaveBtn.addEventListener('click', cropAndSave);
+        cropCanvas.addEventListener('mousedown', startDrag);
+        cropCanvas.addEventListener('mousemove', drag);
+        cropCanvas.addEventListener('mouseup', endDrag);
+        cropCanvas.addEventListener('mouseleave', endDrag); // Also end drag if mouse leaves
+        cropCanvas.addEventListener('touchstart', startDrag);
+        cropCanvas.addEventListener('touchmove', drag);
+        cropCanvas.addEventListener('touchend', endDrag);
+        
+        // NEW: Zoom listeners
+        zoomInBtn.addEventListener('click', () => zoomCrop('in'));
+        zoomOutBtn.addEventListener('click', () => zoomCrop('out'));
+
+
+        // Re-added Audio Player Listeners
+        audioPlayer.addEventListener('ended', () => {
+            setReadAloudState('paused'); 
+            
+            // Check if Auto Play is active and if there's a next page
+            if (isAutoPlayActive && currentPage < storyPages.length - 1) {
+                // Introduce a pause before turning the page
+                if(advanceTimer) clearTimeout(advanceTimer);
+                // Call safeNextPage to advance without stopping the autoplay flag
+                advanceTimer = setTimeout(safeNextPage, PAUSE_DELAY_MS); 
+            } else if (isAutoPlayActive) {
+                 // Stop auto play if the last page is reached
+                 isAutoPlayActive = false;
+                 updateAutoPlayButton();
+            }
+        });
+        audioPlayer.addEventListener('error', (e) => {
+            const mediaError = audioPlayer.error;
+            console.error("Error playing audio. Event:", e, "MediaError:", mediaError); 
+            
+            let errorMessage = "Could not play audio. The TTS service may be unauthorized or unavailable.";
+            if (mediaError) {
+                // If 401 occurred during the fetch, the 'error' URL will be "error" and the mediaError code will be 4 (SRC_NOT_SUPPORTED)
+                errorMessage = "Audio failed to load. The TTS service may be unauthorized or unavailable (Code: " + mediaError.code + ").";
+            }
+            setReadAloudState('paused');
+            isAutoPlayActive = false;
+            updateAutoPlayButton();
+            showError(errorMessage);
+        });
+        
+        // NEW: Fullscreen Idle Timer Event Listeners (Mouse and Touch)
+        bookTextPane.addEventListener('mousemove', resetIdleTimer);
+        bookTextPane.addEventListener('touchstart', resetIdleTimer);
+        bookTextPane.addEventListener('touchmove', resetIdleTimer);
+
+        /**
+         * Shows the fullscreen navigation bar and resets the idle timer.
+         */
+        function resetIdleTimer() {
+            if (!mainAppCard.classList.contains('simulated-fullscreen')) return;
+
+            // 1. Show the navigation bar and the close button immediately
+            fullscreenNavBar.classList.remove('hidden-nav');
+            fullscreenCloseBtn.style.opacity = 1;
+            
+            // 2. Clear any existing timer
+            if (idleTimer) {
+                clearTimeout(idleTimer);
+            }
+
+            // 3. Set a new timer to hide the bar after IDLE_TIMEOUT
+            idleTimer = setTimeout(hideFullscreenNav, IDLE_TIMEOUT);
+        }
+
+        /**
+         * Hides the fullscreen navigation bar and the close button by applying opacity.
+         */
+        function hideFullscreenNav() {
+            fullscreenNavBar.classList.add('hidden-nav');
+            fullscreenCloseBtn.style.opacity = 0;
+        }
+
+
+        /**
+         * Main function to handle the story generation process
+         */
+        async function handleGenerateStory() {
+            const theme = themeInput.value.trim();
+            if (!theme) {
+                showError("Please enter a story theme.");
+                return;
+            }
+            clearError();
+            setLoadingState(true, "Summoning story ideas from the ether..."); // Magical message
+
+            // NEW: Scroll to the results area at the start of generation
+            resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+            try {
+                // 1. Generate the story plot (text and image prompts) as a JSON object
+                const storyObject = await generateStoryPages(theme, uploadedCharacter);
+                
+                if (!storyObject || !storyObject.pages || storyObject.pages.length === 0) {
+                    throw new Error("Failed to generate story plot (empty response).");
+                }
+                
+                const storyData = storyObject.pages;
+                globalCharacterDescription = storyObject.mainCharacterDescription; // Set global variable
+
+                // 2. Generate all images in parallel
+                setLoadingState(true, `Illustrating ${storyData.length} whimsical scenes...`); // Magical message
+                
+                // Pass the description to ensure consistency
+                const imagePromises = storyData.map(page => 
+                    generateImage(page.imagePrompt, uploadedCharacter, globalCharacterDescription)
+                );
+                const imageUrls = await Promise.all(imagePromises);
+
+                // 3. Combine text and images into our app state
+                storyPages = storyData.map((page, index) => ({
+                    text: page.text,
+                    imageUrl: imageUrls[index],
+                    imagePrompt: page.imagePrompt,
+                    // Re-added audio state initialization
+                    audioUrl: null,
+                    audioPromise: null, 
+                }));
+                currentPage = 0;
+
+                // 4. Display the first page
+                displayCurrentPage(); // No direction needed for the initial load
+                setLoadingState(false);
+                storyOutput.classList.remove('hidden');
+                downloadContainer.classList.remove('hidden'); // Show download button
+                
+                // Reset/Enable Audio Buttons
+                updateAutoPlayButton();
+                readAloudBtn.disabled = false;
+                fsReadAloudBtn.disabled = false; // Enable FS button
+                
+                // NEW: Enable Recreate Buttons and Download Media button
+                setRecreateState(false);
+                downloadMediaZipBtn.disabled = false;
+
+                // NEW: Scroll to the results area at the end of generation
+                resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+            } catch (error) {
+                console.error("Error during generation:", error);
+                if (error.message.includes("401")) {
+                    showError("Authentication failed. Please ensure your API keys or project settings are correct.");
+                } else {
+                    showError("Failed to generate story. Please try again.");
+                }
+                setLoadingState(false);
+            }
+        }
+
+        /**
+         * A general-purpose function to get a simple text response from Gemini.
+         */
+        async function generateSimpleText(prompt) {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: "You are a creative assistant. You provide short, concise, and helpful responses." }] }
+            };
+            const response = await fetchWithBackoff(textGenerationUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return response?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        }
+
+        // --- Re-added TTS Utility Functions ---
+
+        /**
+         * Converts a base64 string to an ArrayBuffer.
+         * @param {string} base64 - The base64 encoded string.
+         * @returns {ArrayBuffer}
+         */
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        /**
+         * Converts PCM (raw audio data) to a WAV Blob.
+         * The Gemini TTS API returns signed 16-bit PCM audio data.
+         * @param {Int16Array} pcm16 - The PCM data.
+         * @param {number} sampleRate - The sample rate.
+         * @returns {Blob}
+         */
+        function pcmToWav(pcm16, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+            const view = new DataView(buffer);
+            let offset = 0;
+
+            function writeString(s) {
+                for (let i = 0; i < s.length; i++) {
+                    view.setUint8(offset + i, s.charCodeAt(i));
+                }
+                offset += s.length;
+            }
+
+            function writeUint32(i) {
+                view.setUint32(offset, i, true);
+                offset += 4;
+            }
+
+            function writeUint16(i) {
+                view.setUint16(offset, i, true);
+                offset += 2;
+            }
+
+            // RIFF header
+            writeString('RIFF');
+            writeUint32(36 + pcm16.length * 2); // File size - 8
+            writeString('WAVE');
+
+            // fmt chunk
+            writeString('fmt ');
+            writeUint32(16); // Chunk size
+            writeUint16(1); // Audio format (1 for PCM)
+            writeUint16(1); // Number of channels
+            writeUint32(sampleRate);
+            writeUint32(sampleRate * 2); // Byte rate (SampleRate * NumChannels * BitsPerSample/8)
+            writeUint16(2); // Block align (NumChannels * BitsPerSample/8)
+            writeUint16(16); // Bits per sample
+
+            // data chunk
+            writeString('data');
+            writeUint32(pcm16.length * 2); // Data size (Bytes)
+
+            // Write the PCM data (Int16, little-endian)
+            for (let i = 0; i < pcm16.length; i++) {
+                view.setInt16(offset, pcm16[i], true);
+                offset += 2;
+            }
+
+            return new Blob([view], { type: 'audio/wave' });
+        }
+        
+        /**
+         * Calls the TTS API to generate audio for a single text segment.
+         * @param {string} text - The text to be spoken.
+         * @returns {Promise<string>} - A Promise that resolves with the audio blob URL.
+         */
+        async function callTtsApi(text) {
+            const payload = {
+                contents: [{
+                    parts: [{ text: text }]
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            // Using a default voice name (Kore)
+                            prebuiltVoiceConfig: { voiceName: "Kore" }
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts" // Explicitly setting model
+            };
+
+            const response = await fetchWithBackoff(ttsGenerationUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const part = response?.candidates?.[0]?.content?.parts?.[0];
+            const audioData = part?.inlineData?.data;
+            const mimeType = part?.inlineData?.mimeType; // Expects audio/L16;rate=...
+
+            if (!audioData || !mimeType || !mimeType.startsWith("audio/L16")) {
+                throw new Error("TTS API returned invalid or missing audio data.");
+            }
+            
+            // Extract sample rate from the mimeType string (e.g., audio/L16;rate=24000)
+            const rateMatch = mimeType.match(/rate=(\d+)/);
+            const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+
+            // Convert base64 to ArrayBuffer, then to Int16Array (signed PCM 16-bit)
+            const pcmData = base64ToArrayBuffer(audioData);
+            const pcm16 = new Int16Array(pcmData);
+            
+            // Convert PCM to WAV Blob
+            const wavBlob = pcmToWav(pcm16, sampleRate);
+            
+            // Create and return the object URL
+            return URL.createObjectURL(wavBlob);
+        }
+
+        /**
+         * Preloads audio for a specific page using its audioPromise.
+         * @param {number} pageIndex - The index of the page to preload.
+         * @returns {Promise<string>} The audio URL.
+         */
+        function preloadPageAudio(pageIndex) {
+            const page = storyPages[pageIndex];
+            if (page.audioUrl) {
+                return Promise.resolve(page.audioUrl);
+            }
+            
+            if (!page.audioPromise) {
+                // Create the promise to fetch audio
+                page.audioPromise = callTtsApi(page.text)
+                    .then(url => {
+                        page.audioUrl = url;
+                        return url;
+                    })
+                    .catch(error => {
+                        console.error(`Audio preload failed for page ${pageIndex}:`, error);
+                        page.audioUrl = "error"; // Mark as error to prevent retries
+                        throw error;
+                    });
+            }
+
+            return page.audioPromise;
+        }
+
+        // --- End TTS Utility Functions ---
+
+        /**
+         * Generates the story text, image prompts, and a character description (if no image uploaded).
+         * @param {string} theme - The theme provided by the user.
+         * @param {object} character - Uploaded character data.
+         * @returns {Promise<{pages: Array, mainCharacterDescription: string}>}
+         */
+        async function generateStoryPages(theme, character) {
+            const systemPrompt = "You are a children's storybook author. You write simple, charming, and positive short stories for young children (ages 3-6). If a character image is provided, ensure the story and all image prompts heavily feature and describe this character, making it central to the narrative. You always return valid JSON based on the provided schema.";
+            
+            const isCharacterUploaded = !!character.base64Data;
+            let userPrompt = `Write a children's story about: ${theme}. The story MUST be exactly 9 pages long (9 segments).`;
+            const parts = [];
+            
+            if (isCharacterUploaded) {
+                userPrompt += ` **The main character is shown in the uploaded image.** Base the story and all image prompts on this character, describing its appearance and integrating it into the scenes.`;
+                parts.push({ text: userPrompt });
+                parts.push({ inlineData: { mimeType: character.mimeType, data: character.base64Data } }
+            );
+            } else {
+                // Force the LLM to define a highly descriptive character for consistency (T2I scenario)
+                userPrompt += ` The protagonist is a single, central character. You MUST first invent a highly descriptive, unique, and easy-to-visualize appearance for this main character that will remain perfectly consistent across all scenes (e.g., 'A clumsy, purple astronaut dog with one floppy ear, wearing a yellow spacesuit with patches').`;
+                parts.push({ text: userPrompt });
+            }
+            
+            userPrompt += ` Each page needs a short paragraph of text (2-3 simple sentences) and a simple, corresponding image prompt for an illustrator. Return a JSON object with 'mainCharacterDescription' and a 'pages' array.`;
+            
+            const payload = {
+                contents: [{ parts }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT", // Changed to object to hold description and pages
+                        properties: {
+                            mainCharacterDescription: {
+                                type: "STRING",
+                                description: "A detailed, unique, and highly descriptive phrase (20-30 words) defining the main character's appearance. Omit this property if an image was provided."
+                            },
+                            pages: {
+                                type: "ARRAY",
+                                maxItems: 9, 
+                                minItems: 9, 
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        text: { type: "STRING" },
+                                        imagePrompt: { type: "STRING" }
+                                    },
+                                    required: ["text", "imagePrompt"]
+                                }
+                            }
+                        },
+                        required: ["pages"] // mainCharacterDescription is optional if image uploaded
+                    }
+                }
+            };
+
+            const response = await fetchWithBackoff(textGenerationUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response) throw new Error("API request for story plot failed");
+
+            const jsonText = response.candidates[0].content.parts[0].text;
+            return JSON.parse(jsonText);
+        }
+
+        /**
+         * Generic wrapper to call the correct image generation function.
+         */
+        async function generateImage(prompt, character, characterDescription) {
+            if (character.base64Data) {
+                return await generateImageFromImage(prompt, character);
+            } else {
+                return await generateImageFromText(prompt, characterDescription);
+            }
+        }
+
+        /**
+         * Text-to-Image function: Now uses the generated character description for consistency.
+         */
+        async function generateImageFromText(prompt, characterDescription) {
+            // CRITICAL FIX: Prepend the character description to the prompt
+            const characterAnchor = characterDescription ? `Main character is: ${characterDescription}. ` : '';
+            
+            const imagePrompt = `Create a high-quality, whimsical, colorful, and friendly children's book illustration. ${characterAnchor}Scene: ${prompt}. Style: Oil painting, soft brushstrokes, faded edges, painterly, storybook style. **Output must be 1024x1024 (square aspect ratio).**`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: imagePrompt }] }],
+                generationConfig: {
+                    responseModalities: ["IMAGE"]
+                }
+            };
+
+            const response = await fetchWithBackoff(imageGenerationUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const base64Data = response?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+            if (!base64Data) {
+                console.error("Image generation failed for prompt:", prompt);
+                return "https://placehold.co/600x400/eeeeee/cccccc?text=Image+Failed";
+            }
+            
+            return `data:image/png;base64,${base64Data}`;
+        }
+
+        /**
+         * Image-to-Image function: Slightly reinforced consistency instruction.
+         */
+        async function generateImageFromImage(prompt, character) {
+            const imagePrompt = `**CRITICAL: MAINTAIN THE UPLOADED CHARACTER'S APPEARANCE, CLOTHING, AND POSE ACROSS ALL SCENES EXACTLY AS SHOWN IN THE REFERENCE IMAGE.** Create a high-quality, whimsical, colorful, and friendly children's book illustration. Scene: ${prompt}. Style: Oil painting, soft brushstrokes, faded edges, painterly, storybook style. **Output must be 1024x1024 (square aspect ratio), irrespective of the input image dimensions.**`;
+            
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: imagePrompt },
+                        { inlineData: { mimeType: character.mimeType, data: character.base64Data } }
+                    ]
+                }],
+                generationConfig: {
+                    responseModalities: ["IMAGE"]
+                }
+            };
+
+            const response = await fetchWithBackoff(imageToImageUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const base64Data = response?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+            if (!base64Data) {
+                console.error("Image-to-image generation failed for prompt:", prompt);
+                return "https://placehold.co/600x400/eeeeee/cccccc?text=Image+Failed";
+            }
+            
+            return `data:image/png;base64,${base64Data}`;
+        }
+
+        async function fetchWithBackoff(url, options, maxRetries = 3) {
+            let delay = 1000;
+            
+            console.log(`Attempting to fetch: ${url.substring(0, 100)}...`);
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    
+                    if (response.status === 401) {
+                         // Specific handling for 401 Unauthorized
+                         console.error(`API Error 401: Unauthorized. Please check your API key/permissions. Failed URL: ${url.substring(0, 100)}...`);
+                         throw new Error(`API Authentication failed (401). Please check API keys or project settings. Failed URL: ${url.substring(0, 100)}...`);
+                    }
+
+                    if (response.status === 429 || response.status >= 500) {
+                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
+                    } else {
+                        // Log other client errors (400, 403, etc.)
+                        console.error("Client error:", response.status, await response.text());
+                        return null;
+                    }
+                } catch (error) {
+                    console.warn("Network error, retrying...", error);
+                    await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
+                }
+            }
+            throw new Error(`Failed to fetch from API after several retries. Failed URL: ${url.substring(0, 100)}...`);
+        }
+
+        // --- UI/State Management Functions ---
+        
+        /**
+         * Toggles the visibility of the image prompt editor and the button text.
+         */
+        function togglePromptEditor() {
+            if (storyPages.length === 0 || recreateImageBtn.disabled) return;
+
+            const isHidden = imagePromptEditor.classList.contains('hidden');
+            
+            // Show/Hide the editor block
+            imagePromptEditor.classList.toggle('hidden');
+            
+            // Toggle padding class on the text pane to prevent overlap
+            bookTextPane.classList.toggle('editor-visible-padding');
+
+            if (isHidden) {
+                // SHOW editor: Change Recreate button to be the Cancel/Toggle button.
+                imagePromptInput.value = storyPages[currentPage].imagePrompt;
+
+                // Change Recreate button text to a close/cancel icon
+                recreateImageBtn.innerHTML = `
+                    <div class="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-1">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel Edit
+                    </div>`;
+                fsRecreateImageBtn.innerHTML = recreateImageBtn.innerHTML;
+                
+                // Show the Generate button inside the editor
+                generateNewImageBtn.classList.remove('hidden');
+
+            } else {
+                // HIDE editor: Revert Recreate button to its original state
+                recreateImageBtn.innerHTML = `
+                    <div class="flex items-center">
+                        Recreate Image
+                    </div>`;
+                fsRecreateImageBtn.innerHTML = recreateImageBtn.innerHTML;
+                
+                // Hide the Generate button
+                generateNewImageBtn.classList.add('hidden');
+            }
+        }
+        
+        /**
+         * Sets the state of the "Read Aloud" button (play, pause, loading).
+         * @param {string} state - 'playing', 'paused', or 'loading'
+         */
+        function setReadAloudState(state) {
+            // Hide all icons first
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.add('hidden');
+            readAloudSpinner.classList.add('hidden');
+            // Hide fullscreen icons
+            fsPlayIcon.classList.add('hidden');
+            fsPauseIcon.classList.add('hidden');
+            fsReadAloudSpinner.classList.add('hidden');
+            
+            if (state === 'loading') {
+                readAloudSpinner.classList.remove('hidden');
+                fsReadAloudSpinner.classList.remove('hidden');
+                isPlaying = false;
+                readAloudBtn.disabled = true;
+                fsReadAloudBtn.disabled = true;
+            } else if (state === 'playing') {
+                pauseIcon.classList.remove('hidden');
+                fsPauseIcon.classList.remove('hidden');
+                isPlaying = true;
+                readAloudBtn.disabled = false;
+                fsReadAloudBtn.disabled = false;
+            } else { // 'paused' or 'error' state
+                playIcon.classList.remove('hidden');
+                fsPlayIcon.classList.remove('hidden');
+                isPlaying = false;
+                readAloudBtn.disabled = false;
+                fsReadAloudBtn.disabled = false;
+            }
+        }
+        
+        /**
+         * Sets the state of the Recreate button (loading/enabled).
+         * Note: This primarily handles the spinner state and disables the main buttons during API call.
+         */
+        function setRecreateState(isLoading) {
+            // Disable/enable the main Recreate/Cancel button
+            recreateImageBtn.disabled = isLoading;
+            fsRecreateImageBtn.disabled = isLoading;
+            
+            // Disable/enable the Generate New Image button
+            generateNewImageBtn.disabled = isLoading;
+
+            if (isLoading) {
+                // Hide the buttons' text/icon container, show spinner
+                recreateImageBtn.querySelector('.flex').classList.add('hidden');
+                recreateSpinner.classList.remove('hidden');
+                fsRecreateImageBtn.querySelector('.flex').classList.add('hidden');
+                fsRecreateSpinner.classList.remove('hidden');
+                
+                // Show/hide the GENERATE button's spinner
+                generateNewImageBtn.classList.add('hidden');
+                generateNewImageSpinner.classList.remove('hidden');
+            } else {
+                // Show the buttons' text/icon container, hide spinner
+                recreateImageBtn.querySelector('.flex').classList.remove('hidden');
+                recreateSpinner.classList.add('hidden');
+                fsRecreateImageBtn.querySelector('.flex').classList.remove('hidden');
+                fsRecreateSpinner.classList.add('hidden');
+                
+                // Show/hide the GENERATE button's spinner (It remains visible after generation is done)
+                generateNewImageBtn.classList.remove('hidden');
+                generateNewImageSpinner.classList.add('hidden');
+            }
+        }
+        
+        /**
+         * Handles the final image generation API call using the current prompt in the input field.
+         */
+        async function recreateImage() {
+            // Check if the Generate button itself is disabled or the prompt is empty
+            if (generateNewImageBtn.disabled || storyPages.length === 0) return;
+
+            const newPrompt = imagePromptInput.value.trim();
+            if (!newPrompt) {
+                showError("Please enter a prompt in the 'Edit Image Prompt' field before generating.");
+                return;
+            }
+            
+            setRecreateState(true);
+            clearError();
+            
+            // Pause audio since the content is about to change
+            audioPlayer.pause();
+            if(advanceTimer) clearTimeout(advanceTimer);
+            setReadAloudState('paused'); 
+            
+            const pageIndex = currentPage;
+            
+            try {
+                // Use the text from the input field as the prompt
+                const newImageUrl = await generateImage(
+                    newPrompt, // <-- Use the EDITED prompt
+                    uploadedCharacter,
+                    globalCharacterDescription 
+                );
+
+                if (!newImageUrl || newImageUrl.includes("Image+Failed")) {
+                    throw new Error("New image generation failed.");
+                }
+                
+                // 1. Update the state (CRITICAL: update the stored prompt to the new one)
+                storyPages[pageIndex].imageUrl = newImageUrl;
+                storyPages[pageIndex].imagePrompt = newPrompt; 
+                
+                // 2. Update the UI image element
+                storyImage.src = newImageUrl;
+                
+                // 3. Clean up audio resources (not strictly necessary but good practice)
+                storyPages[pageIndex].audioUrl = null;
+                storyPages[pageIndex].audioPromise = null;
+                
+            } catch (error) {
+                console.error("Error recreating image:", error);
+                showError("Failed to regenerate image. Try generating the full story again or check the console.");
+            } finally {
+                setRecreateState(false);
+                // CRITICAL: Hide the prompt editor after successful creation
+                // The main Recreate button will revert to "Recreate Image" after this toggle.
+                togglePromptEditor(); 
+            }
+        }
+
+        async function handleReadAloud() {
+            if (readAloudBtn.disabled) return;
+
+            if (isPlaying) {
+                audioPlayer.pause();
+                setReadAloudState('paused');
+                // If manually paused, stop autoplay as well
+                if(isAutoPlayActive) {
+                    isAutoPlayActive = false;
+                    updateAutoPlayButton();
+                }
+                return;
+            }
+
+            const pageIndex = currentPage;
+            setReadAloudState('loading');
+            
+            try {
+                const audioUrl = await preloadPageAudio(pageIndex);
+                
+                if (audioUrl === 'error') {
+                    throw new Error("Audio generation failed due to previous error.");
+                }
+
+                audioPlayer.src = audioUrl;
+                await audioPlayer.play();
+                setReadAloudState('playing');
+
+            } catch (e) {
+                console.error("Error in handleReadAloud:", e);
+                // The fetchWithBackoff handles the 401 error message display
+                if (e.message.includes("401")) {
+                    showError("TTS Authorization Failed. Cannot play audio. The TTS model is unauthorized.");
+                } else {
+                     showError("Failed to load or play audio. Try generating the story again.");
+                }
+                setReadAloudState('paused');
+            }
+        }
+
+        /**
+         * Toggles the Auto Play mode on and off.
+         */
+        async function handleAutoPlayToggle() {
+            if (storyPages.length === 0) return;
+
+            // Check if ANY of the related buttons are disabled (i.e., loading)
+            if (autoplayBtn.disabled || fsReadAloudBtn.disabled || readAloudBtn.disabled) return;
+
+            if (isAutoPlayActive) {
+                // Turning OFF
+                isAutoPlayActive = false;
+                audioPlayer.pause();
+                if (advanceTimer) clearTimeout(advanceTimer);
+                setReadAloudState('paused'); // <<< This updates fsReadAloudBtn
+                updateAutoPlayButton(); // <<< This updates autoplayBtn
+                return;
+            }
+            
+            // Turning ON
+            isAutoPlayActive = true;
+            
+            // --- CRITICAL: Show loading state immediately on Fullscreen button ---
+            // Show loading on BOTH sets of buttons
+            updateAutoPlayButton(true); // Shows loading on autoplayBtn
+            setReadAloudState('loading'); // Shows loading on fsReadAloudBtn & readAloudBtn
+
+            // 1. Preload ALL audio in the background
+            try {
+                // Fetch all audio, but don't stop execution if one fails.
+                const preloadPromises = storyPages.map((_, index) => preloadPageAudio(index));
+                await Promise.allSettled(preloadPromises); 
+
+                // 2. Check if the current page has a valid URL after preload (could be 'error')
+                const currentPageAudioUrl = storyPages[currentPage].audioUrl;
+
+                if (currentPageAudioUrl && currentPageAudioUrl !== 'error') {
+                    // 3. Start reading the current page
+                    audioPlayer.src = currentPageAudioUrl;
+                    await audioPlayer.play();
+                    setReadAloudState('playing'); // <<< Updates fsReadAloudBtn to 'pause' icon
+                } else {
+                    // Handle error in current page audio
+                    throw new Error("Could not start autoplay, current page audio is unavailable.");
+                }
+
+            } catch (e) {
+                console.error("Error during Auto Play setup:", e);
+                if (e.message.includes("401")) {
+                    showError("TTS Authorization Failed. Auto Play cannot function. The TTS model is unauthorized.");
+                } else {
+                    showError("Failed to prepare audio for Auto Play. See console for details.");
+                }
+                isAutoPlayActive = false;
+                setReadAloudState('paused'); // <<< Resets fsReadAloudBtn to 'play' icon
+            }
+            // Update button state regardless of success/failure
+            updateAutoPlayButton(); // <<< Resets autoplayBtn to "Stop" or "Auto Play"
+        }
+
+        /**
+         * Updates the visual state of the Auto Play button.
+         * @param {boolean} [isLoading=false] - Whether the button should show a loading spinner.
+         */
+        function updateAutoPlayButton(isLoading = false) {
+            if (isLoading) {
+                autoplayBtn.disabled = true;
+                autoplayBtn.innerHTML = '<div class="spinner w-5 h-5 border-2 border-gray-100 border-t-white rounded-full mr-2"></div> Downloading Audio...';
+            } else if (isAutoPlayActive) {
+                autoplayBtn.disabled = false;
+                autoplayBtn.classList.add('bg-pink-700', 'hover:bg-pink-800');
+                autoplayBtn.classList.remove('bg-pink-600', 'hover:bg-pink-700');
+                autoplayBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 mr-2">
+                    <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.02-1.748a.75.75 0 0 1 0 1.496l-5.603 3.113c-.499.274-.752-.04-.752-.656V8.559c0-.616.253-.93.752-.656l5.603 3.113Z" clip-rule="evenodd" />
+                </svg> Stop Reading`;
+            } else {
+                autoplayBtn.disabled = false;
+                autoplayBtn.classList.add('bg-pink-600', 'hover:bg-pink-700');
+                autoplayBtn.classList.remove('bg-pink-700', 'hover:bg-pink-800');
+                autoplayBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113c-.499.274-.752-.04-.752-.656V8.559c0-.616.253-.93.752-.656l5.603 3.113Z" />
+                </svg> Auto Play`;
+            }
+        }
+
+        /**
+         * Safely advances to the next page and handles audio playback for autoplay.
+         */
+        function safeNextPage() {
+            // If the timer was triggered, it means a page just ended. Advance the page.
+            if (currentPage < storyPages.length - 1) {
+                currentPage++;
+                displayCurrentPage('next');
+                
+                if (isAutoPlayActive) {
+                    handleReadAloud(); // This will auto-play the new page
+                }
+            }
+        }
+
+
+        /**
+         * Handles the 'Surprise Me' button click.
+         */
+        async function handleSurpriseMe() {
+            setSurpriseLoading(true);
+            clearError();
+            
+            const currentTheme = themeInput.value.trim();
+            let prompt = "";
+
+            if (currentTheme && themeSource === 'user') {
+                // Logic 1: Enhance the existing theme (because it was user-edited)
+                prompt = `Enhance this children's story theme to be more descriptive, whimsical, and age-appropriate (3-6 years old). The enhanced theme MUST retain the main characters and core concept of the input. Be concise, just the new theme itself, no extra text or quotes. Theme: "${currentTheme}"`;
+            } else {
+                // Logic 2: Generate a surprise theme from scratch (because it was empty or untouched surprise)
+                prompt = "Generate a single, whimsical, and fun story theme for a children's book (3-6 years old). Be concise, just the theme itself, no extra text or quotes. For example: 'A lonely dragon who finds a friend' or 'The magical, time-traveling treehouse'.";
+            }
+
+            try {
+                let theme = await generateSimpleText(prompt);
+                if (theme) {
+                    theme = theme.trim().replace(/^"|"$/g, '').replace(/\.$/, '');
+                    themeInput.value = theme;
+                    
+                    // **CRITICAL CHANGE**: Mark the source as 'surprise' when the API fills the box
+                    themeSource = 'surprise';
+                    
+                    updateSurpriseButton();
+                } else {
+                    throw new Error("Received empty response from API.");
+                }
+            } catch (e) {
+                console.error("Failed to get a theme:", e);
+                // Propagate 401 error message if it occurred
+                if (e.message.includes("401")) {
+                     showError("Authentication failed. Please ensure your API keys or project settings are correct.");
+                } else {
+                     showError("Failed to get a theme. Please try again.");
+                }
+            } finally {
+                setSurpriseLoading(false);
+            }
+        }
+
+        /**
+         * **UPDATED** logic to correctly determine button label based on theme source.
+         */
+        function updateSurpriseButton() {
+            const theme = themeInput.value.trim();
+            
+            // If there's text AND the user typed it or edited a generated theme
+            if (theme && themeSource === 'user') {
+                surpriseBtn.innerHTML = '✨ Enhance Theme';
+                surpriseBtn.title = 'Enhance your current theme';
+            } 
+            // If there's no text OR the text was generated and untouched
+            else {
+                surpriseBtn.innerHTML = '✨ Surprise Me';
+                surpriseBtn.title = 'Generate a random theme';
+            }
+        }
+
+        /**
+         * Core function to update the page content with a flipping animation.
+         * @param {string} direction - 'next' or 'prev'
+         */
+        function displayCurrentPage(direction = null) {
+            if (storyPages.length === 0 || isAnimating) {
+                return;
+            }
+
+            // Stop any current audio playback
+            audioPlayer.pause();
+            if(advanceTimer) clearTimeout(advanceTimer);
+            setReadAloudState('paused'); // Reset play button state
+            
+            // Ensure editor is hidden on page change
+            imagePromptEditor.classList.add('hidden');
+            // FIX: Remove padding on text pane when editor hides (for pages that scrolled)
+            bookTextPane.classList.remove('editor-visible-padding');
+
+            // Set recreate button to its default state (no icon)
+            recreateImageBtn.innerHTML = `<div class="flex items-center">Recreate Image</div>`;
+            fsRecreateImageBtn.innerHTML = recreateImageBtn.innerHTML;
+
+
+            const page = storyPages[currentPage];
+            
+            const contentElements = [storyImage, storyText];
+            const outClass = direction === 'prev' ? 'animate-slide-out-right' : 'animate-slide-out-left';
+            const inClass = direction === 'prev' ? 'animate-slide-in-left' : 'animate-slide-in-right';
+
+            // --- Animation Logic ---
+            if (direction) {
+                isAnimating = true;
+                
+                // 1. Apply OUT animation
+                contentElements.forEach(el => el.classList.add(outClass));
+
+                // 2. Wait for OUT animation to finish before updating content
+                setTimeout(() => {
+                    // Update content
+                    storyImage.src = page.imageUrl;
+                    storyImage.alt = page.imagePrompt;
+                    storyText.textContent = page.text;
+                    
+                    // Remove OUT animation
+                    contentElements.forEach(el => el.classList.remove(outClass));
+                    
+                    // Apply IN animation
+                    contentElements.forEach(el => el.classList.add(inClass));
+
+                    // 3. Clean up IN animation after it completes
+                    setTimeout(() => {
+                        contentElements.forEach(el => el.classList.remove(inClass));
+                        isAnimating = false;
+                        
+                    }, ANIMATION_DURATION); // 500ms for IN animation
+
+                }, ANIMATION_DURATION / 2); // Start content swap halfway through OUT animation
+
+            } else {
+                // Initial load: no animation
+                storyImage.src = page.imageUrl;
+                storyImage.alt = page.imagePrompt;
+                storyText.textContent = page.text;
+            }
+
+            // Update Image Prompt Editor's content (but keep hidden)
+            if (storyPages.length > 0) {
+                imagePromptInput.value = page.imagePrompt;
+                downloadMediaZipBtn.disabled = false;
+            } else {
+                imagePromptInput.value = ''; // Clear if hidden
+                downloadMediaZipBtn.disabled = true;
+            }
+
+
+            // Update UI elements
+            pageIndicator.textContent = `Page ${currentPage + 1} / ${storyPages.length}`;
+            fsPageIndicator.textContent = `Page ${currentPage + 1} / ${storyPages.length}`;
+            prevBtn.disabled = (currentPage === 0);
+            fsPrevBtn.disabled = (currentPage === 0);
+            nextBtn.disabled = (currentPage === storyPages.length - 1);
+            fsNextBtn.disabled = (currentPage === storyPages.length - 1);
+        }
+
+        function showPreviousPage(direction) {
+            audioPlayer.pause();
+            if (advanceTimer) clearTimeout(advanceTimer);
+            isAutoPlayActive = false;
+            updateAutoPlayButton();
+
+            if (currentPage > 0) {
+                currentPage--;
+                displayCurrentPage(direction); // Pass direction 'prev'
+            }
+        }
+
+        function showNextPage(direction) {
+            audioPlayer.pause();
+            if (advanceTimer) clearTimeout(advanceTimer);
+            isAutoPlayActive = false;
+            updateAutoPlayButton();
+
+            if (currentPage < storyPages.length - 1) {
+                currentPage++;
+                displayCurrentPage(direction); // Pass direction 'next'
+            }
+        }
+
+        function setLoadingState(isLoading, message = "Summoning story ideas from the ether...") {
+            generateBtn.disabled = isLoading;
+            if (isLoading) {
+                storyOutput.classList.add('hidden');
+                downloadContainer.classList.add('hidden');
+                
+                // Show the fancy loader, centered within the results container
+                loadingSpinner.classList.remove('hidden');
+                loadingMessage.textContent = message;
+            } else {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        function setSurpriseLoading(isLoading) {
+            surpriseBtn.disabled = isLoading;
+            if (isLoading) {
+                surpriseBtn.innerHTML = '<div class="spinner w-5 h-5 border-2 border-gray-200 border-t-white rounded-full mx-auto"></div>';
+            } else {
+                updateSurpriseButton();
+            }
+        }
+
+
+        // --- Download Helpers ---
+
+        function downloadDataUrl(dataUrl, fileName) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function getBaseFileName() {
+            const theme = themeInput.value.trim() || "My Storybook";
+            return theme.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').trim() || "my-storybook";
+        }
+
+        /**
+         * Downloads all images and audio files as a single ZIP archive.
+         */
+        async function downloadAllMediaAsZip() {
+            if (storyPages.length === 0) return;
+            if (typeof JSZip === 'undefined') {
+                showError("ZIP functionality requires JSZip library to load.");
+                return;
+            }
+
+            downloadMediaZipBtn.disabled = true;
+            const originalText = downloadMediaZipBtn.textContent;
+            downloadMediaZipBtn.textContent = "Preparing ZIP file...";
+
+            const zip = new JSZip();
+            const baseName = getBaseFileName();
+
+            try {
+                // 1. Preload all audio and store references to all media URLs
+                const preloadPromises = [];
+                for(let i = 0; i < storyPages.length; i++) {
+                    // Check for audio promise/url, create one if missing
+                    preloadPromises.push(preloadPageAudio(i));
+                }
+                
+                // Wait for all audio generation attempts to complete (some might fail, that's okay)
+                await Promise.allSettled(preloadPromises); 
+
+                // 2. Process all media items (Images and Audio)
+                for (let i = 0; i < storyPages.length; i++) {
+                    const page = storyPages[i];
+                    const pageNumber = i + 1;
+                    
+                    // --- Image Download ---
+                    if (page.imageUrl && !page.imageUrl.includes('placehold.co')) {
+                        const imgFileName = `page_${pageNumber}_image.png`;
+                        // Convert Data URL (Base64) to raw data for ZIP
+                        const imgBase64 = page.imageUrl.split(',')[1];
+                        zip.file(`images/${imgFileName}`, imgBase64, { base64: true });
+                    }
+
+                    // --- Audio Download ---
+                    if (page.audioUrl && page.audioUrl !== 'error') {
+                        const audioFileName = `audio/page_${pageNumber}_audio.wav`;
+                        
+                        // Fetch the Blob data from the object URL
+                        const response = await fetch(page.audioUrl);
+                        const audioBlob = await response.blob();
+                        
+                        // Convert Blob to ArrayBuffer
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        zip.file(audioFileName, arrayBuffer);
+                    }
+                }
+
+                // 3. Generate the ZIP file
+                downloadMediaZipBtn.textContent = "Zipping files...";
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+
+                // 4. Initiate Download
+                const tempUrl = URL.createObjectURL(zipBlob);
+                downloadDataUrl(tempUrl, `${baseName}_media.zip`);
+                URL.revokeObjectURL(tempUrl);
+
+            } catch (err) {
+                console.error("ZIP Download Failed:", err);
+                showError("Failed to create or download the ZIP file. Please check the console for errors.");
+            } finally {
+                downloadMediaZipBtn.textContent = originalText;
+                downloadMediaZipBtn.disabled = false;
+            }
+        }
+
+
+        // --- Cropping Logic (Unchanged) ---
+
+        /**
+         * Reusable function to constrain the crop box position within the bounds of the displayed image.
+         */
+        function constrainCropArea() {
+            const constraints = scaledImageConstraints;
+
+            // Horizontal constraints
+            let finalX = Math.max(cropArea.x, constraints.xStart);
+            finalX = Math.min(finalX, constraints.xEnd - cropArea.size);
+            
+            // Vertical constraints
+            let finalY = Math.max(cropArea.y, constraints.yStart);
+            finalY = Math.min(finalY, constraints.yEnd - cropArea.size);
+
+            cropArea.x = finalX;
+            cropArea.y = finalY;
+        }
+
+        function showCropModal(img) {
+            // Set canvas size (max 400px or fit within window)
+            const displaySize = Math.min(400, window.innerWidth - 80, window.innerHeight - 200);
+            cropCanvas.width = displaySize;
+            cropCanvas.height = displaySize;
+            
+            // Calculate scaled image dimensions to fit the display canvas
+            const ratio = Math.min(displaySize / img.width, displaySize / img.height);
+            const scaledW = img.width * ratio;
+            const scaledH = img.height * ratio;
+            const scaledX = (displaySize - scaledW) / 2;
+            const scaledY = (displaySize - scaledH) / 2;
+            
+            // Store constraints for use in drag and zoom functions
+            scaledImageConstraints = {
+                xStart: scaledX,
+                yStart: scaledY,
+                xEnd: scaledX + scaledW,
+                yEnd: scaledY + scaledH,
+                minDim: Math.min(scaledW, scaledH)
+            };
+
+            // Initialize cropArea to the largest possible center square within the scaled image
+            const initialSize = scaledImageConstraints.minDim;
+            cropArea.size = initialSize;
+            cropArea.x = (displaySize - initialSize) / 2;
+            cropArea.y = (displaySize - initialSize) / 2;
+            
+            drawCanvas();
+            cropModal.classList.remove('hidden');
+        }
+
+        function hideCropModal() {
+            cropModal.classList.add('hidden');
+            // Clear the file input so the user can re-upload if needed
+            characterUploadInput.value = null; 
+        }
+
+        function drawCanvas() {
+            const canvasSize = cropCanvas.width;
+            
+            // Calculate current image display dimensions
+            const constraints = scaledImageConstraints;
+            const scaledW = constraints.xEnd - constraints.xStart;
+            const scaledH = constraints.yEnd - constraints.yStart;
+            const scaledX = constraints.xStart;
+            const scaledY = constraints.yStart;
+            
+            // 1. Clear and redraw the image
+            cropCtx.clearRect(0, 0, canvasSize, canvasSize);
+            cropCtx.drawImage(cropImage, scaledX, scaledY, scaledW, scaledH);
+
+            // 2. Draw the darkened overlay (mask)
+            cropCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            
+            // Draw four rectangles around the crop area
+            // Top
+            cropCtx.fillRect(0, 0, canvasSize, cropArea.y);
+            // Bottom
+            cropCtx.fillRect(0, cropArea.y + cropArea.size, canvasSize, canvasSize - (cropArea.y + cropArea.size));
+            // Left (in the middle band)
+            cropCtx.fillRect(0, cropArea.y, cropArea.x, cropArea.size);
+            // Right (in the middle band)
+            cropCtx.fillRect(cropArea.x + cropArea.size, cropArea.y, canvasSize - (cropArea.x + cropArea.size), cropArea.size);
+            
+            // 3. Draw the crop box border
+            cropCtx.strokeStyle = 'white';
+            cropCtx.lineWidth = 3;
+            cropCtx.strokeRect(cropArea.x, cropArea.y, cropArea.size, cropArea.size);
+        }
+
+        function getCursorPosition(e) {
+            const rect = cropCanvas.getBoundingClientRect();
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            return { x, y };
+        }
+
+        function startDrag(e) {
+            e.preventDefault();
+            const pos = getCursorPosition(e);
+            
+            // Check if the click is inside the current crop area
+            if (pos.x > cropArea.x && pos.x < cropArea.x + cropArea.size &&
+                pos.y > cropArea.y && pos.y < cropArea.y + cropArea.size) {
+                
+                isDragging = true;
+                // Store the starting position of the drag relative to the crop box corner
+                dragStartX = pos.x - cropArea.x;
+                dragStartY = pos.y - cropArea.y;
+                cropCanvas.style.cursor = 'grabbing';
+            }
+        }
+
+        function drag(e) {
+            e.preventDefault();
+            if (!isDragging) return;
+
+            const pos = getCursorPosition(e);
+            let newX = pos.x - dragStartX;
+            let newY = pos.y - dragStartY;
+
+            // Apply unconstrained movement
+            cropArea.x = newX;
+            cropArea.y = newY;
+
+            // Apply constraints
+            constrainCropArea();
+
+            drawCanvas();
+        }
+
+        function endDrag() {
+            isDragging = false;
+            cropCanvas.style.cursor = 'grab';
+        }
+
+        function zoomCrop(direction) {
+            const STEP = 20; // Pixels to change size by
+            const minAllowedSize = 50; 
+            const maxAllowedSize = scaledImageConstraints.minDim;
+
+            let newSize = cropArea.size;
+            
+            if (direction === 'in') {
+                newSize = Math.max(minAllowedSize, cropArea.size - STEP);
+            } else if (direction === 'out') {
+                newSize = Math.min(maxAllowedSize, cropArea.size + STEP);
+            }
+            
+            if (newSize === cropArea.size) return; // No change
+
+            // 1. Center the crop box during resize (a cleaner user experience)
+            const delta = newSize - cropArea.size;
+            cropArea.x -= delta / 2;
+            cropArea.y -= delta / 2;
+            cropArea.size = newSize;
+
+            // 2. Constrain the position to ensure it's still inside the image boundaries
+            constrainCropArea();
+
+            drawCanvas();
+        }
+
+        function cropAndSave() {
+            hideCropModal();
+            
+            // Display size of the canvas image
+            const canvasSize = cropCanvas.width;
+            
+            // Ratio of actual image pixels to displayed canvas pixels
+            const ratio = cropImage.width / (scaledImageConstraints.xEnd - scaledImageConstraints.xStart);
+            
+            // Convert cropArea coordinates (canvas space) back to original image coordinates
+            
+            // X, Y position on the original image to start the crop (in pixels)
+            const cropPixelX = (cropArea.x - scaledImageConstraints.xStart) * ratio;
+            const cropPixelY = (cropArea.y - scaledImageConstraints.yStart) * ratio;
+            
+            // Size of the square crop window on the original image (in pixels)
+            const cropPixelSize = cropArea.size * ratio;
+
+            // Use a new canvas for the final high-resolution crop
+            const finalCanvas = document.createElement('canvas');
+            const finalSize = 512; // Standard size for the Base64 character reference
+            finalCanvas.width = finalSize; 
+            finalCanvas.height = finalSize;
+            const finalCtx = finalCanvas.getContext('2d');
+
+            // Draw the selected area from the original image onto the final square canvas
+            finalCtx.drawImage(
+                cropImage,
+                cropPixelX, cropPixelY, cropPixelSize, cropPixelSize, // Source (original image coords)
+                0, 0, finalSize, finalSize // Destination (final canvas coords)
+            );
+
+            const squareDataUrl = finalCanvas.toDataURL('image/png');
+            const [mimePart, dataPart] = squareDataUrl.split(',');
+            const mimeType = mimePart.match(/:(.*?);/)[1];
+
+            uploadedCharacter = {
+                base64Data: dataPart,
+                mimeType: mimeType
+            };
+
+            // Update UI with the cropped image
+            characterPreviewImage.src = squareDataUrl;
+            characterPreviewContainer.classList.remove('hidden');
+            characterUploadLabel.classList.add('hidden');
+            clearError();
+        }
+        
+        // --- Image and File Handlers (Updated) ---
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file || !file.type.startsWith('image/')) {
+                showError("Please upload a valid image file (PNG or JPEG).");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // Load the image into the global cropImage object for access by the modal
+                cropImage.onload = () => {
+                    showCropModal(cropImage); // Show the modal with the loaded image
+                };
+                cropImage.onerror = () => {
+                    showError("Failed to load image data.");
+                    clearUploadedImage();
+                };
+                cropImage.src = e.target.result;
+            };
+            reader.onerror = () => {
+                showError("Failed to read the image file.");
+                clearUploadedImage();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearUploadedImage() {
+            uploadedCharacter = { base64Data: null, mimeType: null };
+            characterUploadInput.value = null;
+            characterPreviewImage.src = "";
+            characterPreviewContainer.classList.add('hidden');
+            characterUploadLabel.classList.remove('hidden');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            themeInput.classList.add('border-red-500', 'focus:ring-red-500');
+        }
+
+        function clearError() {
+            errorMessage.classList.add('hidden');
+            themeInput.classList.remove('border-red-500', 'focus:ring-red-500');
+        }
+        
+        /**
+         * Helper function to convert a string to Title Case.
+         * @param {string} str - The string to convert.
+         * @returns {string}
+         */
+        function toTitleCase(str) {
+            if (!str) return "";
+            return str.toLowerCase().split(' ').map(word => {
+                // Return empty strings or handle words like 'and' if needed (simple implementation here)
+                if (word.length === 0) return "";
+                return (word.charAt(0).toUpperCase() + word.slice(1));
+            }).join(' ');
+        }
+        
+        // --- PDF Generation (Unchanged) ---
+
+        async function downloadStoryAsPdf() {
+            if (storyPages.length === 0) return;
+
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = "Binding the pages with digital magic..."; // Magical message
+
+            try {
+                const doc = new jsPDF({
+                    orientation: 'p',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                // --- PDF constants ---
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const margin = 20;
+                const contentW = pageW - (margin * 2);
+                
+                // UPDATED: Define credit components
+                const creditLine1 = "Designed and developed with Gemini Canvas by:";
+                const creditLine2 = "David Jess F. Asauro - Teacher II, Odiongan National High School";
+
+
+                const theme = themeInput.value.trim() || "My Storybook";
+                // NEW: Use Title Case for display, keep clean version for filename
+                const displayTitle = toTitleCase(theme);
+                const cleanTitle = theme.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, ' ').trim() || "My Storybook";
+                const fileName = `${cleanTitle.toLowerCase().replace(/\s+/g, '-')}.pdf`;
+                
+                let actualPageNum = 1; // Tracks the page number for the footer
+
+                // Helper to add footer/page number (used for story and outline pages)
+                const addFooter = (doc, pageNumber) => {
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(10);
+                    doc.setTextColor(150); // Gray color
+                    const footerText = `Page ${pageNumber}`;
+                    doc.text(footerText, pageW - margin, pageH - 10, { align: 'right' });
+                };
+
+                // --- 1. COVER PAGE (Enhanced) ---
+                
+                // First Image (Cover Art) - Draw this first
+                const coverImgUrl = storyPages[0].imageUrl;
+                const coverImgProps = await getImageProperties(coverImgUrl);
+                
+                // Calculate space for image, leaving room for title and credits
+                const maxImgH = pageH - 140; // More room at the bottom for title + credits
+                const maxImgW = contentW * 0.9; // 90% of content width
+
+                const coverRatio = Math.min(maxImgW / coverImgProps.width, maxImgH / coverImgProps.height);
+                const newCoverW = coverImgProps.width * coverRatio;
+                const newCoverH = coverImgProps.height * coverRatio;
+                
+                const coverImgX = pageW / 2 - newCoverW / 2;
+                const coverImgY = 20; // Start image higher up
+                
+                doc.addImage(coverImgUrl, 'PNG', coverImgX, coverImgY, newCoverW, newCoverH);
+
+                // Title (Drawn BELOW the image, no overlap)
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(28); // Reduced font size
+                doc.setTextColor(50); // Dark gray text
+                const titleLines = doc.splitTextToSize(displayTitle, newCoverW * 0.9); // Fit within 90% of image width
+                const titleHeight = doc.getTextDimensions(titleLines).h;
+                
+                const titleY = coverImgY + newCoverH + 10; // Position title below the image with 10mm gap
+                
+                doc.text(titleLines, pageW / 2, titleY, { align: 'center' }); 
+
+                // --- CREDIT DRAWING (Footer Style on Cover Page) ---
+                const creditStartY = pageH - 40; // Position credits 40mm from the bottom
+                const lineHeight = 5; // A reasonable line height in mm
+
+                // Line 1: Designed and developed...
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(12);
+                doc.setTextColor(100); // Slightly lighter gray for footer credit
+                const line1Lines = doc.splitTextToSize(creditLine1, contentW * 0.9);
+                doc.text(line1Lines, pageW / 2, creditStartY, { align: 'center' });
+                
+                // Line 2: David Jess F. Asauro... (BOLD)
+                doc.setFont('helvetica', 'bold');
+                const line2Lines = doc.splitTextToSize(creditLine2, contentW * 0.9);
+                doc.text(line2Lines, pageW / 2, creditStartY + lineHeight * line1Lines.length, { align: 'center' });
+
+
+                // --- 2. STORY PAGES (Looped) ---
+
+                // New constants for 95% image size
+                const IMAGE_FILL_FACTOR = 0.95; // Images will take up 95% of the page dimension
+                const calculatedMarginX = (pageW * (1 - IMAGE_FILL_FACTOR)) / 2;
+                const calculatedMarginY = (pageH - 20) * (1 - IMAGE_FILL_FACTOR) / 2; // Adjusted for footer margin
+
+                for (let i = 0; i < storyPages.length; i++) {
+                    const page = storyPages[i];
+
+                    // --- 2A. Add Image Page (Full page portrait) ---
+                    doc.addPage('a4', 'p');
+                    addFooter(doc, actualPageNum++);
+
+                    const imgAreaW = pageW - (calculatedMarginX * 2);
+                    const imgAreaH = pageH - (calculatedMarginY * 2) - 20; // Account for footer space
+
+                    const imgProps = await getImageProperties(page.imageUrl);
+                    
+                    const ratio = Math.min(imgAreaW / imgProps.width, imgAreaH / imgProps.height);
+                    const newImgW = imgProps.width * ratio;
+                    const newImgH = imgProps.height * ratio;
+                    
+                    // Center the image within the 95% bounding box
+                    const imgX = calculatedMarginX + (imgAreaW - newImgW) / 2;
+                    const imgY = calculatedMarginY + (imgAreaH - newImgH) / 2;
+                    
+                    doc.addImage(page.imageUrl, 'PNG', imgX, imgY, newImgW, newImgH);
+
+                    // --- 2B. Add Text Page (Full page portrait) ---
+                    doc.addPage('a4', 'p');
+                    addFooter(doc, actualPageNum++);
+                    
+                    const textAreaW = contentW * 0.8; // Slightly narrower for better presentation
+                    const textAreaX = pageW / 2 - textAreaW / 2;
+                    const textAreaH = pageH - (margin * 2);
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(18); // Larger font size for easy reading
+                    doc.setTextColor(0);
+
+                    const textLines = doc.splitTextToSize(page.text, textAreaW);
+                    
+                    const textHeight = doc.getTextDimensions(textLines).h;
+                    // Center vertically
+                    const textY = margin + (textAreaH - textHeight) / 2;
+
+                    doc.text(textLines, textAreaX, textY);
+                }
+                
+                // --- 3. STORY OUTLINE PAGE (New Content Page) ---
+                doc.addPage('a4', 'p');
+                addFooter(doc, actualPageNum++);
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(28);
+                doc.text("ABOUT THE STORY", pageW / 2, margin + 15, { align: 'center' });
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(14);
+
+                // Call AI to get a synopsis
+                const synopsisPrompt = `Write a concise, engaging, and positive summary for the children's story titled "${displayTitle}" based on the following pages (keep it under 8 sentences): ${storyPages.map(p => p.text).join(' ')}`;
+                const synopsis = await generateSimpleText(synopsisPrompt);
+
+                const outlineTextAreaW = contentW * 0.9;
+                const outlineTextAreaX = pageW / 2 - outlineTextAreaW / 2;
+                const outlineY = margin + 40;
+
+                const synopsisLines = doc.splitTextToSize(synopsis, outlineTextAreaW);
+                doc.text(synopsisLines, outlineTextAreaX, outlineY);
+
+                // --- 4. Add blank pages to make total page count divisible by 4 ---
+                // Total content pages: 1 (Cover) + 9*2 (Story) + 1 (Outline) = 20 pages.
+                // 20 % 4 = 0. Pages to add should be 0.
+                const pagesToAdd = (4 - (actualPageNum % 4)) % 4;
+                
+                for (let j = 0; j < pagesToAdd; j++) {
+                    doc.addPage('a4', 'p');
+                    // No footer on blank pages
+                }
+
+                doc.save(fileName);
+
+            } catch (err) {
+                console.error("Failed to build PDF:", err);
+                showError("Could not build PDF. Please try again.");
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = "Download Book (PDF)";
+            }
+        }
+
+        function getImageProperties(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    resolve({ width: img.width, height: img.height });
+                };
+                img.onerror = (err) => {
+                    console.error("Failed to load image for PDF:", err);
+                    resolve({ width: 600, height: 400 });
+                };
+                img.src = src;
+            });
+        }
+
+        // --- Fullscreen Toggle (Updated to hide all controls) ---
+
+        function toggleFullScreen() {
+            const isFullscreen = mainAppCard.classList.contains('simulated-fullscreen');
+
+            if (isFullscreen) {
+                // EXIT Fullscreen Mode
+                mainAppCard.classList.remove('simulated-fullscreen', 'h-screen', 'w-screen', 'max-w-full', 'rounded-none', 'flex-col', 'overflow-y-auto');
+                mainAppCard.classList.add('max-w-2xl', 'rounded-2xl');
+                
+                // Show original app sections
+                headerSection.classList.remove('hidden');
+                inputSection.classList.remove('hidden');
+
+                // Restore original results container styles: Revert to p-6 sm:p-8
+                resultsContainer.classList.add('p-6', 'sm:p-8', 'min-h-[400px]');
+                resultsContainer.classList.remove('h-full', 'p-4', 'w-full');
+                
+                // Restore original story sizing
+                bookContainer.classList.remove('h-full', 'w-full');
+                storyImage.classList.add('h-64', 'md:h-96');
+                storyImage.classList.remove('h-full');
+                
+                // TEXT SIZE CHANGE: Revert to normal
+                storyText.classList.add('min-h-[150px]', 'md:h-96', 'text-xl');
+                storyText.classList.remove('h-full', 'text-3xl'); 
+                
+                // Show original controls
+                navContainer.classList.remove('hidden'); 
+                downloadContainer.classList.remove('hidden'); 
+                originalReadAloudContainer.classList.remove('hidden');
+                
+                // Hide fullscreen specific UI
+                fullscreenCloseBtn.classList.add('hidden');
+                fullscreenNavBarWrapper.classList.add('hidden'); // Hide the wrapper
+                
+                // CRITICAL: Stop and clear idle timer when exiting fullscreen
+                if (idleTimer) clearTimeout(idleTimer);
+                fullscreenNavBar.classList.remove('hidden-nav'); // Ensure clean state for next entry
+                fullscreenCloseBtn.style.opacity = 1; // Ensure close button is visible for next entry
+                
+                expandIcon.classList.remove('hidden');
+                compressIcon.classList.add('hidden');
+                
+                // Also hide the editor if it was visible
+                imagePromptEditor.classList.add('hidden');
+                bookTextPane.classList.remove('editor-visible-padding'); // Ensure padding is removed
+                recreateImageBtn.innerHTML = `<div class="flex items-center">Recreate Image</div>`;
+                fsRecreateImageBtn.innerHTML = recreateImageBtn.innerHTML;
+            } else {
+                // ENTER Fullscreen Mode
+                mainAppCard.classList.add('simulated-fullscreen', 'h-screen', 'w-screen', 'max-w-full', 'rounded-none', 'flex-col', 'overflow-y-auto');
+                mainAppCard.classList.remove('max-w-2xl', 'rounded-2xl');
+                
+                // Hide original app sections
+                headerSection.classList.add('hidden');
+                inputSection.classList.add('hidden');
+                
+                // Maximize results container: Use p-4 for minimal padding to match environment default
+                resultsContainer.classList.remove('p-6', 'sm:p-8', 'min-h-[400px]');
+                resultsContainer.classList.add('h-full', 'p-4', 'w-full'); 
+
+                // Maximize story container
+                bookContainer.classList.add('h-full', 'w-full');
+                
+                // Maximize inner content
+                storyImage.classList.remove('h-64', 'md:h-96');
+                storyImage.classList.add('h-full');
+                
+                // TEXT SIZE CHANGE: Go large for fullscreen
+                storyText.classList.remove('min-h-[150px]', 'md:h-96', 'text-xl'); // Remove original text size
+                storyText.classList.add('h-full', 'text-3xl'); // Add fullscreen size
+                
+                // Hide original controls
+                navContainer.classList.add('hidden'); 
+                downloadContainer.classList.add('hidden'); 
+                originalReadAloudContainer.classList.add('hidden');
+
+                // Show fullscreen specific UI
+                fullscreenCloseBtn.classList.remove('hidden');
+                fullscreenNavBarWrapper.classList.remove('hidden'); // Show the wrapper
+                
+                // CRITICAL: Show nav and start the timer immediately upon entering fullscreen
+                fullscreenNavBar.classList.remove('hidden-nav');
+                resetIdleTimer(); // Starts visible and timer is running
+
+                expandIcon.classList.add('hidden');
+                compressIcon.classList.remove('hidden');
+            }
+        }
+
     </script>
 </body>
 </html>
