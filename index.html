@@ -271,7 +271,7 @@
             opacity: 0;
         }
 
-        /* Countdown Animation */
+        /* Countdown Animation for numbers > 1 */
         #countdown-overlay.animate {
             display: flex;
             animation: countdown-pulse 1s ease-in-out forwards;
@@ -281,6 +281,23 @@
             20% { opacity: 1; transform: scale(1); }
             80% { opacity: 1; transform: scale(1); }
             100% { opacity: 0; transform: scale(0.8); }
+        }
+        
+        /* --- NEW: Arrow Lift Animation --- */
+        @keyframes arrow-lift {
+            /* Start slightly below center and small */
+            0% { opacity: 0; transform: scale(1) translateY(50px); } 
+            /* Quick snap to large and centered */
+            10% { opacity: 1; transform: scale(1.5) translateY(0); }
+            /* Hold, then lift up while shrinking */
+            90% { opacity: 1; transform: scale(1.2) translateY(-100px); }
+            /* Fade out at the top */
+            100% { opacity: 0; transform: scale(0.8) translateY(-150px); } 
+        }
+
+        /* Override the animation when the final step class is present */
+        #countdown-overlay.is-arrow.animate {
+            animation: arrow-lift 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; /* Use a bouncy ease */
         }
 
         /* 3. Preview View */
@@ -658,8 +675,10 @@
                 photoSlots = [];
                 undoStack = []; // NEW: Clear undo stack
                 mappingState = { 
-                    photoIndex: 1, clickCount: 0, 
-                    startX: 0, startY: 0, tempX: 0, tempY: 0, 
+                    photoIndex: 1, 
+                    clickCount: 0, 
+                    startX: 0, startY: 0, 
+                    tempX: 0, tempY: 0, 
                     tempSlot: null, // Holds { centerX, centerY, width, height, rotation, scale }
                     isDragging: false, 
                     dragOffsetX: 0,
@@ -1361,6 +1380,7 @@
 
                 countdownEl.style.display = ''; 
                 countdownEl.textContent = count;
+                countdownEl.classList.remove('is-arrow'); // Ensure arrow class is removed for numbers > 1
                 triggerCountdownAnimation();
                 
                 // NEW: Update visual crop based on the next photo slot
@@ -1368,13 +1388,21 @@
 
                 countdownInterval = setInterval(() => {
                     count--;
-                    if (count > 0) {
+                    if (count > 1) {
                         countdownEl.textContent = count;
+                        countdownEl.classList.remove('is-arrow');
                         triggerCountdownAnimation();
-                    } else {
+                    } else if (count === 1) {
+                        // CHANGE: Display the arrow symbol on 1 and add the arrow class
+                        countdownEl.textContent = '⬆️';
+                        countdownEl.classList.add('is-arrow');
+                        triggerCountdownAnimation();
+                    } else { // When count reaches 0, take the photo
                         clearInterval(countdownInterval);
                         countdownInterval = null;
-                        countdownEl.textContent = ''; // CHANGED from '📸'
+                        
+                        // Capture logic starts here:
+                        countdownEl.textContent = ''; 
                         triggerCountdownAnimation();
                         
                         // Hide the crop frame overlay immediately before taking the shot
@@ -1387,6 +1415,7 @@
                             
                             // Continue to photo capture
                             countdownEl.style.display = 'none'; 
+                            countdownEl.classList.remove('is-arrow'); // Remove arrow class after use
                             takePhoto();
                         }, 300); // 300ms is the duration of the flash animation
                     }
