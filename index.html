@@ -144,7 +144,7 @@
             height: 100%;
             object-fit: contain; /* Shows full feed, maintains aspect, adds bars */
             z-index: 1; /* Behind UI */
-            transform: scaleX(-1); /* Mirror preview */
+            /* transform: scaleX(-1); REMOVED to invert (un-mirror) the preview */
         }
         
         /* NEW: Close Camera Button */
@@ -1454,13 +1454,10 @@
                 captureCanvas.width = sW;
                 captureCanvas.height = sH;
 
-                // --- MIRROR CAPTURE LOGIC ---
-                captureCtx.save();
-                captureCtx.translate(sW, 0); 
-                captureCtx.scale(-1, 1); 
+                // --- CHANGED: STANDARD CAPTURE LOGIC (No Mirroring) ---
+                // We removed the scale(-1, 1) and translate so the image matches the new non-mirrored preview
                 captureCtx.drawImage(videoEl, sX, sY, sW, sH, 0, 0, sW, sH);
-                captureCtx.restore(); 
-                // --- END MIRROR CAPTURE LOGIC ---
+                // --- END STANDARD CAPTURE LOGIC ---
 
                 const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
                 capturedPhotos.push(currentPhotoDataUrl);
