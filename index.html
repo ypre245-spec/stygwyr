@@ -4,505 +4,611 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PhotoBooth Pro</title>
+    <!-- MediaPipe for AI Background Blur & Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <!-- Removed MediaPipe Hands script -->
+
     <style>
         /* General Setup */
         :root {
             --brand-color: #4a90e2;
-            --dark-bg: #1a1a1a;
+            --brand-gradient: linear-gradient(135deg, #4a90e2, #9b59b6);
+            --dark-bg: #121212;
+            --card-bg: #1e1e1e;
             --light-text: #f0f0f0;
             --shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-            --panel-bg: rgba(40, 40, 40, 0.9);
+            --panel-bg: rgba(30, 30, 30, 0.95);
         }
 
         html, body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: var(--dark-bg);
-            color: var(--light-text);
+            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+            background-color: var(--dark-bg); color: var(--light-text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             overscroll-behavior: none;
         }
 
         /* View Management */
         .view {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            box-sizing: border-box;
-            align-items: center;
-            justify-content: center;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; box-sizing: border-box; align-items: center; justify-content: center;
         }
 
-        /* 1. Template Upload View */
+        /* --- HOME SCREEN UI --- */
         #template-view {
-            flex-direction: column;
-            padding: 20px;
-            text-align: center;
-            overflow-y: auto;
+            flex-direction: column; padding: 20px; overflow-y: auto;
+            background: radial-gradient(circle at top, #2a2a2a 0%, #121212 100%);
         }
-        #template-view h1 { font-weight: 600; margin-bottom: 10px; }
-        #template-view p { font-size: 1.1em; color: #aaa; max-width: 400px; margin-top: 0; }
+
+        /* Hero Section */
+        .hero-section {
+            text-align: center; margin-bottom: 30px;
+        }
+        .hero-title {
+            font-size: 2.5em; font-weight: 800; margin: 0;
+            background: var(--brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+        .hero-subtitle { color: #888; font-size: 1em; margin-top: 5px; font-weight: 400; }
+
+        /* Settings Icon */
+        .settings-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255,255,255,0.1); border: none; border-radius: 50%;
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: white; transition: background 0.2s; z-index: 100;
+        }
+        .settings-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* Cards Layout */
+        .cards-container {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px; width: 100%; max-width: 900px;
+        }
+
+        .action-card {
+            background: var(--card-bg); padding: 20px; border-radius: 16px;
+            box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 15px;
+            border: 1px solid #333; transition: transform 0.2s;
+        }
+        .action-card:hover { transform: translateY(-2px); border-color: #555; }
         
-        .quick-start-section {
-            margin-top: 20px;
-            padding: 15px;
-            background: #252525;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: var(--shadow);
-        }
-        .quick-start-btn {
-            background-color: #444;
-            margin: 5px;
-            font-size: 0.9em;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .quick-start-btn:hover { background-color: #555; }
-
-        .file-upload-label {
-            display: inline-block;
-            padding: 12px 25px;
-            background-color: var(--brand-color);
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background-color 0.2s;
-            box-shadow: var(--shadow);
-            margin-top: 15px;
-        }
-        .file-upload-label:hover { background-color: #357ABD; }
-        #template-input { display: none; }
-        #file-name { margin-top: 15px; color: #ccc; font-style: italic; }
-        #auto-map-msg { color: #28a745; font-weight: bold; margin-top: 5px; display: none; }
-
-        .creator-credit {
-            margin-top: 40px;
-            font-size: 0.85em;
-            color: #666;
-            font-weight: 500;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            opacity: 0.8;
-        }
+        .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .card-icon { color: #4a90e2; }
+        .card-title { font-size: 1.1em; font-weight: 600; margin: 0; }
         
-        select {
-            margin-top: 5px;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid #444;
-            background-color: #2a2a2a;
-            color: var(--light-text);
-            font-size: 1em;
-            width: 250px;
-            box-shadow: var(--shadow);
-        }
-
-        /* 1.5 Template Mapping View */
-        #mapping-view {
-            flex-direction: column;
-            padding: 20px;
-            text-align: center;
-        }
-        #mapping-canvas {
-            border: 2px dashed #ccc;
-            cursor: crosshair;
-            max-width: 95vw;
-            max-height: 75vh;
-            object-fit: contain;
-            box-shadow: var(--shadow);
-        }
-        .mapping-text {
-            margin: 10px 0;
-            font-size: 1.2em;
-            font-weight: 500;
-            color: #ffcc00;
-        }
-        .adjustment-readout {
-            display: flex; gap: 20px; font-size: 1em; color: #fff; margin-bottom: 15px;
-        }
-        .adjustment-readout.hidden { display: none; }
-
-        /* 2. Camera View */
-        #camera-view {
-            flex-direction: column;
-            justify-content: flex-end;
-            align-items: center;
-            padding-bottom: 30px;
-            box-sizing: border-box;
-        }
-
-        /* Top Control Bar (Settings) */
-        #camera-top-bar {
-            position: absolute;
-            top: 20px;
-            left: 0;
-            width: 100%;
-            padding: 0 20px;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 25;
-        }
-
-        .icon-btn {
-            background: rgba(0, 0, 0, 0.6);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: var(--shadow);
+        /* Buttons */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        .action-btn {
+            background: #2c2c2c; color: white; border: none; border-radius: 8px;
+            padding: 15px; font-size: 0.9em; font-weight: 500; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
             transition: background 0.2s;
         }
-        .icon-btn:hover { background: rgba(0, 0, 0, 0.8); }
-        .icon-btn.active { background: var(--brand-color); }
+        .action-btn:hover { background: #3d3d3d; }
+        .action-btn svg { opacity: 0.8; width: 24px; height: 24px; }
+        
+        .btn-primary { background: var(--brand-color); color: white; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px; border:none; cursor:pointer; }
+        .btn-primary:hover { opacity: 0.9; }
 
-        /* Camera Controls Overlay (Bottom Floating) */
-        #camera-controls {
-            position: absolute;
-            bottom: 110px; /* Above capture button */
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 22;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            background: var(--panel-bg);
-            padding: 8px 15px;
-            border-radius: 25px;
-            align-items: center;
-            justify-content: center;
-            width: max-content;
-            max-width: 90vw;
+        /* Hidden Inputs */
+        #template-input { display: none; }
+        #auto-map-msg { color: #4cd964; font-weight: 600; text-align: center; font-size: 0.9em; display: none; margin-top: 10px; }
+        #file-name { color: #888; font-size: 0.85em; text-align: center; margin-top: 5px; font-style: italic; }
+
+        .creator-credit {
+            margin-top: 40px; font-size: 0.75em; color: #555;
+            text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: #252525; padding: 25px; border-radius: 16px;
+            width: 90%; max-width: 400px; color: white; box-shadow: var(--shadow);
+            display: flex; flex-direction: column; gap: 15px; max-height: 90vh;
+        }
+        .modal-header { font-size: 1.2em; font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .modal-row { display: flex; justify-content: space-between; align-items: center; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+        .qr-container { background: white; padding: 10px; border-radius: 8px; margin: 0 auto; display: flex; justify-content: center; }
+
+        select, input {
+            background: #333; border: 1px solid #555; color: white;
+            padding: 8px; border-radius: 6px; font-size: 0.95em;
+        }
+
+        /* --- OTHER VIEWS --- */
+        #mapping-view, #preview-view { 
+            flex-direction: column; 
         }
         
-        #filter-select, #timer-select {
-            background: transparent;
-            border: 1px solid #666;
-            color: white;
-            padding: 5px;
-            border-radius: 4px;
-            font-size: 0.9em;
+        #mapping-container { position: relative; }
+        #mapping-canvas { border: 2px dashed #555; cursor: crosshair; max-width: 95vw; max-height: 70vh; object-fit: contain; box-shadow: var(--shadow); touch-action: none; }
+        .mapping-text { margin: 5px 0 10px 0; font-size: 1.1em; font-weight: 500; color: #ffcc00; text-align: center; }
+        
+        /* Mapping Toolbar */
+        #mapping-toolbar {
+            display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center;
         }
-        #filter-select option, #timer-select option { background-color: #2a2a2a; color: white; }
+        .tool-btn {
+            background: #333; border: 1px solid #555; color: white; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; gap: 5px;
+        }
+        .tool-btn.active { background: var(--brand-color); border-color: var(--brand-color); }
+        .tool-btn:hover { background: #444; }
 
-        .toggle-label {
-            font-size: 0.9em;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            cursor: pointer;
-            color: white;
-            user-select: none;
+        #magnifier {
+            position: absolute; pointer-events: none; border: 2px solid white; border-radius: 50%; 
+            width: 100px; height: 100px; display: none; overflow: hidden; box-shadow: 0 0 10px black; z-index: 100;
+            background: #000;
         }
 
-        #video-container {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
+        /* Updated Mapping Controls */
+        #mapping-controls-panel {
+            background: #2c2c2c; padding: 12px; border-radius: 12px; margin-top: 10px; 
+            display: flex; flex-direction: column; gap: 8px; align-items: center;
+            border: 1px solid #444; box-shadow: var(--shadow); width: 90%; max-width: 400px;
+        }
+        #mapping-controls-panel.hidden { display: none !important; }
+        .control-row { display: flex; gap: 12px; align-items: center; justify-content: center; width: 100%; flex-wrap: wrap; }
+        .info-pill { background: #111; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; color: #aaa; border: 1px solid #333; }
+        #rotation-slider { accent-color: var(--brand-color); flex: 1; min-width: 100px; height: 20px; }
+        .rot-display { font-family: monospace; color: var(--brand-color); width: 45px; text-align: right; font-weight: bold; }
+
+        /* CAMERA VIEW - IMMERSIVE LAYOUT */
+        #camera-view {
+            display: none;
+            /* Flex removed to allow absolute positioning for full screen */
             background: black;
         }
 
-        #video-preview {
-            width: 100%; height: 100%;
-            object-fit: contain;
-            transition: filter 0.2s;
-        }
-        
-        /* Live Template Overlay */
-        #live-template-img {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            max-width: 100%; max-height: 100%;
-            width: auto; height: auto;
-            z-index: 4;
-            opacity: 0.5;
-            pointer-events: none;
-            display: none; /* Toggled */
+        #camera-top-bar { 
+            position: absolute; /* Overlay */
+            top: 0; left: 0;
+            width: 100%; 
+            height: 70px;
+            padding: 10px 20px; 
+            box-sizing: border-box; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            z-index: 25; 
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
         }
 
+        .icon-btn { background: rgba(50, 50, 50, 0.6); backdrop-filter: blur(4px); color: white; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; }
+        .icon-btn:hover { background: rgba(80, 80, 80, 0.8); }
+        .icon-btn.active { background: var(--brand-color); border-color: var(--brand-color); opacity: 0.9; }
+        
+        /* Video Container - FULL SCREEN */
+        #video-container { 
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1; /* Behind controls */
+            background: black; 
+            overflow: hidden; 
+        }
+
+        /* Controls Bottom Bar */
+        #camera-bottom-bar {
+            position: absolute; /* Overlay */
+            bottom: 0; left: 0;
+            width: 100%;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0) 100%);
+            padding: 40px 0 30px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+        }
+
+        #camera-controls { 
+            position: relative;
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 12px; 
+            background: transparent; 
+            padding: 0; 
+            align-items: center; 
+            justify-content: center; 
+            width: 100%; 
+            transition: opacity 0.3s, transform 0.3s; 
+            margin-bottom: 20px;
+        }
+
+        #camera-controls.controls-hidden { opacity: 0; pointer-events: none; transform: scale(0.9); }
+        
+        .control-btn-small { background: rgba(50,50,50,0.6); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; position: relative; }
+        .control-btn-small.active { background: var(--brand-color); border-color: var(--brand-color); }
+        .toggle-label { font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: white; user-select: none; text-shadow: 0 1px 3px black; }
+
+        /* Camera Overlays */
+        /* object-fit: cover ensures full screen (no black bars), but crops edges */
+        #video-preview, #ai-canvas { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; transition: opacity 0.2s; }
+        
+        /* Grid Overlay */
+        #grid-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: none;
+        }
+        .grid-line { position: absolute; background: rgba(255, 255, 255, 0.5); box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+        .grid-h { width: 100%; height: 1px; left: 0; }
+        .grid-v { height: 100%; width: 1px; top: 0; }
+        
+        #live-template-img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 100%; max-height: 100%; width: auto; height: auto; z-index: 4; opacity: 0.5; pointer-events: none; display: none; }
         .mirrored { transform: scaleX(-1); }
         
-        #crop-frame-overlay {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            display: none; pointer-events: none; z-index: 5;
-            background-color: transparent;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); 
-            border: 1px solid rgba(255,255,255,0.5);
-            transition: all 0.3s ease;
-        }
+        #crop-frame-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; pointer-events: none; z-index: 5; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); border: 1px solid rgba(255,255,255,0.8); }
         
-        #flash-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: white; opacity: 0; z-index: 30; pointer-events: none;
-        }
-        .flash-animation { animation: camera-flash 0.15s ease-out; }
-        @keyframes camera-flash { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
-        
-        #capture-btn {
-            position: relative; z-index: 25;
-            width: 70px; height: 70px;
-            background-color: rgba(255, 255, 255, 0.4);
-            border: 4px solid white; border-radius: 50%;
-            cursor: pointer; box-shadow: var(--shadow);
-            transition: background-color 0.2s, transform 0.1s;
-            margin-bottom: 10px;
-        }
-        #capture-btn:hover { background-color: rgba(255, 255, 255, 0.6); }
-        #capture-btn:active { transform: scale(0.95); }
-        #capture-btn::before {
-            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 50px; height: 50px; background: white; border-radius: 50%;
-        }
-
-        #photo-counter-overlay {
-            position: absolute; top: 20px; right: 20px;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 8px 14px; border-radius: 20px;
-            font-size: 1em; font-weight: 600; z-index: 25; 
-        }
-
-        #countdown-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: none; justify-content: center; align-items: center;
-            font-size: 25vmin; font-weight: bold; color: white;
-            text-shadow: 0 0 20px rgba(0,0,0,0.7); z-index: 20; opacity: 0;
-        }
-        #countdown-overlay.animate { display: flex; animation: countdown-pulse 1s ease-in-out forwards; }
         @keyframes countdown-pulse {
-            0% { opacity: 0; transform: scale(1.5); }
-            20% { opacity: 1; transform: scale(1); }
-            80% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.8); }
+            0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.2); } 50% { opacity: 1; transform: scale(1.0); } 100% { opacity: 0; transform: scale(1.5); }
         }
         @keyframes arrow-lift {
-            0% { opacity: 0; transform: scale(1) translateY(50px); } 
-            10% { opacity: 1; transform: scale(1.5) translateY(0); }
-            90% { opacity: 1; transform: scale(1.2) translateY(-100px); }
-            100% { opacity: 0; transform: scale(0.8) translateY(-150px); } 
+            0% { opacity: 0; transform: translateY(20px) scale(0.8); } 20% { opacity: 1; transform: translateY(0) scale(1.2); } 80% { opacity: 1; transform: translateY(-20px) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(0.5); }
         }
-        #countdown-overlay.is-arrow.animate { animation: arrow-lift 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
 
-        #photo-preview-overlay {
-            position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%) scale(0.9) rotate(0deg); 
-            max-width: 90vw; max-height: 90vh;
-            display: none; object-fit: contain; z-index: 30; 
-            border: none; border-radius: 12px;
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.7), 0 0 0 5px rgba(255, 255, 255, 0.1); 
-            opacity: 0;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease-out;
+        #capture-btn { 
+            position: relative; z-index: 25; width: 80px; height: 80px; 
+            background-color: rgba(255, 255, 255, 0.3); border: 5px solid white; 
+            border-radius: 50%; cursor: pointer; box-shadow: var(--shadow); 
+            backdrop-filter: blur(2px);
         }
+        #capture-btn:active { transform: scale(0.95); background-color: rgba(255,255,255,0.5); }
+        #capture-btn::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: white; border-radius: 50%; }
+        
+        #photo-counter-overlay { position: absolute; top: 80px; right: 20px; background: rgba(0, 0, 0, 0.6); padding: 8px 14px; border-radius: 20px; font-size: 1em; font-weight: 600; z-index: 25; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); }
+        #countdown-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; font-size: 25vmin; font-weight: bold; color: white; text-shadow: 0 0 20px rgba(0,0,0,0.7); z-index: 20; opacity: 0; }
+        #countdown-overlay.animate { display: flex; animation: countdown-pulse 1s ease-in-out forwards; }
+        #countdown-overlay.is-arrow.animate { animation: arrow-lift 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        
+        #photo-preview-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); max-width: 90vw; max-height: 90vh; display: none; object-fit: contain; z-index: 30; border-radius: 12px; opacity: 0; transition: transform 0.2s, opacity 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         #photo-preview-overlay.show-preview { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 
-        /* 3. Preview & Edit View */
-        #preview-view {
-            flex-direction: column;
-            padding: 10px;
-            box-sizing: border-box;
-            width: 100%; height: 100%;
-            overflow: hidden;
-            background-color: #222;
-        }
+        /* Zoom Slider */
+        #zoom-container { display: none; align-items: center; gap: 5px; margin-left: 5px; padding-left: 5px; border-left: 1px solid rgba(255,255,255,0.3); }
+        #zoom-slider { width: 80px; accent-color: var(--brand-color); cursor: pointer; }
 
-        /* Container for canvas + editing overlays */
-        #preview-container {
-            position: relative;
-            max-width: 95vw;
-            max-height: calc(100vh - 180px);
-            margin: 0 auto;
-            box-shadow: var(--shadow);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        #merge-canvas {
-            display: block;
-            max-width: 100%; max-height: 100%;
-            height: auto; width: auto;
-        }
-
-        .button-group {
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px;
-        }
-
-        .btn {
-            padding: 10px 20px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px;
-            cursor: pointer; transition: opacity 0.2s; box-shadow: var(--shadow); color: white;
-            display: flex; align-items: center; gap: 5px;
-        }
+        #preview-container { position: relative; max-width: 95vw; max-height: calc(100vh - 180px); margin: 0 auto; box-shadow: var(--shadow); border-radius: 8px; overflow: hidden; }
+        #merge-canvas { display: block; max-width: 100%; max-height: 100%; height: auto; width: auto; }
+        
+        .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
+        .btn { padding: 10px 20px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; box-shadow: var(--shadow); color: white; display: flex; align-items: center; gap: 5px; }
         .btn:hover { opacity: 0.85; }
-        .btn:disabled { background-color: #555 !important; cursor: not-allowed; opacity: 0.7; }
+        .btn:disabled { background-color: #555 !important; opacity: 0.7; }
         
-        #retake-btn { background-color: #6c757d; }
+        #retake-btn, #change-template-btn, #undo-btn, #redo-btn, #confirm-no, #lg-cancel-btn, #delete-slot-btn, #close-gallery-btn, #gallery-close-btn-footer, #close-preview-btn { background-color: #6c757d; }
         #remap-btn, #reset-mapping-btn { background-color: #dc3545; }
-        #change-template-btn, #undo-btn, #redo-btn { background-color: #6c757d; }
-        #save-btn, #start-mapped-btn, #confirm-adjustment-btn, #share-btn { background-color: var(--brand-color); }
-        #start-btn { background-color: #28a745; }
-        
-        .hint-text { font-size: 0.85em; color: #888; margin-bottom: 5px; font-style: italic; }
+        #save-btn, #start-mapped-btn, #confirm-adjustment-btn, #confirm-yes, #gallery-btn, #print-btn { background-color: var(--brand-color); }
+        #lg-create-btn { background-color: #28a745; }
+
+        /* Gallery Modal (Preview Style) */
+        #gallery-modal .modal-content {
+            width: 95%; max-width: 1000px; height: 85vh; 
+            display: flex; flex-direction: column;
+            padding: 15px;
+        }
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px; overflow-y: auto; padding: 5px;
+            flex: 1;
+            align-content: start;
+        }
+        .gallery-item { 
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            border-radius: 6px; 
+            overflow: hidden; 
+            transition: all 0.2s; 
+            position: relative; 
+            aspect-ratio: 1; /* Forces square thumbnails */
+            background: #000;
+        }
+        .gallery-item:hover { border-color: var(--brand-color); transform: scale(1.05); z-index: 2; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .gallery-empty { color: #666; text-align: center; margin-top: 50px; font-style: italic; grid-column: 1 / -1; }
+
+        /* LG Specific */
+        .lg-preview { width: 100%; height: 150px; background: #111; display: flex; align-items: center; justify-content: center; border: 1px dashed #555; margin-top: 10px; border-radius: 8px; }
+        #lg-canvas-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        /* Keyboard Shortcuts Overlay */
+        #kb-shortcuts-overlay { position: absolute; bottom: 10px; right: 10px; color: #555; font-size: 0.7em; pointer-events: none; opacity: 0.5; }
     </style>
 </head>
 <body>
 
-    <!-- View 1: Template Upload -->
-    <div id="template-view" class="view">
-        <h1>Welcome to ICT PhotoBooth!</h1>
-        
-        <label for="camera-select" style="color:#ccc; display:block; margin-bottom:5px;">Select Camera:</label>
-        <select id="camera-select">
-            <option value="">Loading cameras...</option>
-        </select>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">Settings</div>
+            
+            <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
+                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Camera Source</label>
+                <select id="camera-select" style="width:100%;">
+                    <option value="">Loading cameras...</option>
+                </select>
+            </div>
+            
+            <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
+                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Performance / Resolution</label>
+                <select id="resolution-select" style="width:100%;">
+                    <option value="HD" selected>HD (Smooth - 720p)</option>
+                    <option value="FHD">Full HD (Crisp - 1080p)</option>
+                    <option value="4K">Ultra HD (High Res - 4K)</option>
+                </select>
+                <div style="font-size:0.8em; color:#666; margin-top:5px;">*Use HD for smoother AI effects</div>
+            </div>
 
-        <div class="quick-start-section">
-            <h3 style="margin-top:0; margin-bottom:10px;">Quick Start Templates</h3>
-            <button id="qs-strip-btn" class="quick-start-btn">Vertical Strip (3 Photos)</button>
-            <button id="qs-grid-btn" class="quick-start-btn">2x2 Grid (4 Photos)</button>
+            <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
+                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Manual Photo Count</label>
+                <select id="photo-count-select" style="width:100%;">
+                    <option value="1">1 Photo</option>
+                    <option value="2">2 Photos</option>
+                    <option value="3">3 Photos</option>
+                    <option value="4" selected>4 Photos</option>
+                    <option value="5">5 Photos</option>
+                    <option value="6">6 Photos</option>
+                    <option value="8">8 Photos</option>
+                </select>
+            </div>
+
+            <div class="modal-footer">
+                <button id="close-settings-btn" class="btn" style="background-color:#4a90e2; width:100%;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Generator Modal -->
+    <div id="layout-generator-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">Create Custom Layout</div>
+            <div class="modal-row">
+                <label>Rows:</label>
+                <input type="number" id="lg-rows" value="2" min="1" max="5" style="width:60px;">
+            </div>
+            <div class="modal-row">
+                <label>Columns:</label>
+                <input type="number" id="lg-cols" value="2" min="1" max="4" style="width:60px;">
+            </div>
+            <div class="modal-row">
+                <label>Padding (px):</label>
+                <input type="number" id="lg-padding" value="50" min="0" max="200" style="width:60px;">
+            </div>
+            <div class="modal-row">
+                <label>Gap (px):</label>
+                <input type="number" id="lg-gap" value="20" min="0" max="100" style="width:60px;">
+            </div>
+            <div class="modal-row">
+                <label>Background:</label>
+                <input type="color" id="lg-color" value="#ffffff" style="width:60px; height:35px; padding:0; border:none;">
+            </div>
+            <div class="lg-preview">
+                <img id="lg-canvas-preview" />
+            </div>
+            <div class="modal-footer">
+                <button id="lg-cancel-btn" class="btn">Cancel</button>
+                <button id="lg-create-btn" class="btn">Use Layout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">Confirm Action</div>
+            <p id="confirm-msg" style="text-align:center; margin: 10px 0;">Retake this photo?</p>
+            <div class="modal-footer" style="justify-content:center;">
+                <button id="confirm-yes" class="btn">Yes</button>
+                <button id="confirm-no" class="btn">No</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Modal (Preview) -->
+    <div id="gallery-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Gallery Preview</span>
+                <button id="close-gallery-btn" class="control-btn-small" style="border:none;">✕</button>
+            </div>
+            <div id="gallery-list" class="gallery-grid">
+                <div class="gallery-empty">No photos yet</div>
+            </div>
+            <div class="modal-footer">
+                <button id="gallery-close-btn-footer" class="btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View 1: Home Screen -->
+    <div id="template-view" class="view">
+        <button id="settings-btn" class="settings-btn" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 0 2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+
+        <div class="hero-section">
+            <h1 class="hero-title">PhotoBooth Pro</h1>
+            <div class="hero-subtitle">Capture. Edit. Share.</div>
+        </div>
+
+        <div class="cards-container">
+            <div class="action-card">
+                <div class="card-header">
+                    <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <h3 class="card-title">Quick Start</h3>
+                </div>
+                <div class="btn-grid">
+                    <button id="qs-strip-btn" class="action-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="7" y1="8" x2="17" y2="8"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+                        Strip (3)
+                    </button>
+                    <button id="qs-grid-btn" class="action-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line></svg>
+                        Grid (4)
+                    </button>
+                </div>
+            </div>
+
+            <div class="action-card">
+                <div class="card-header">
+                    <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon></svg>
+                    <h3 class="card-title">Creative Studio</h3>
+                </div>
+                <div class="btn-grid">
+                    <button id="open-layout-gen-btn" class="action-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+                        Layout Gen
+                    </button>
+                    <label for="template-input" class="action-btn" style="margin:0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        Upload PNG
+                    </label>
+                </div>
+                <input type="file" id="template-input" accept="image/png">
+                <div id="file-name"></div>
+                <div id="auto-map-msg"></div>
+                <button id="start-btn" class="btn-primary" disabled style="display:none;">Start Session</button>
+            </div>
+
+            <div class="action-card">
+                <div class="card-header">
+                    <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                    <h3 class="card-title">Freestyle</h3>
+                </div>
+                <button id="start-no-template-btn" class="action-btn" style="width:100%;">Start without Template</button>
+            </div>
         </div>
         
-        <p style="margin-top: 20px;">OR upload your **PNG template**.</p>
-        
-        <label for="template-input" class="file-upload-label">
-            Select Template (.png)
-        </label>
-        <input type="file" id="template-input" accept="image/png">
-        
-        <div id="file-name">No file selected.</div>
-        <div id="auto-map-msg"></div>
-
-        <label for="photo-count-select" style="margin-top: 20px; display: block; color: #ccc;">Number of Photos:</label>
-        <select id="photo-count-select">
-            <option value="1">1 Photo</option>
-            <option value="2">2 Photos</option>
-            <option value="3">3 Photos</option>
-            <option value="4" selected>4 Photos</option>
-            <option value="5">5 Photos</option>
-            <option value="6">6 Photos</option>
-            <option value="7">7 Photos</option>
-            <option value="8">8 Photos</option>
-        </select>
-        
-        <button id="start-btn" class="btn" style="margin-top: 20px;" disabled>
-            Start With Template
-        </button>
-        <button id="start-no-template-btn" class="btn" style="margin-top: 10px; background-color: #6c757d;">
-            Start without Template
+        <button id="gallery-btn" class="btn" style="margin-top:20px; width: auto; min-width: 200px;">
+             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> View Gallery
         </button>
 
         <div class="creator-credit">Created by DAVID JESS F. ASAURO</div>
+        <div id="kb-shortcuts-overlay">Space:Capture | P:Print | S:Save | R:Retake</div>
     </div>
 
     <!-- View 1.5: Template Mapping -->
     <div id="mapping-view" class="view">
         <h2>ICT Photo Studio</h2>
-        <p class="mapping-text" id="mapping-instructions">Click **TOP-LEFT** corner for Photo 1.</p>
-        
-        <div id="adjustment-readout" class="adjustment-readout hidden">
-            <span id="rotation-value-label">Rotation: 0°</span>
-            <span id="scale-value-label">Scale: 100%</span>
+        <div id="mapping-toolbar">
+            <button class="tool-btn active" id="tool-rect" title="Rectangle Mode"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg></button>
+            <button class="tool-btn" id="tool-circle" title="Circle Mode"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg></button>
+            <div style="width:1px; background:#555; margin:0 5px;"></div>
+            <button class="tool-btn active" id="tool-snap" title="Snap Guides">Snap</button>
+            <button class="tool-btn" id="tool-ratio" title="Aspect Ratio: Free">Free</button>
+        </div>
+        <p class="mapping-text" id="mapping-instructions">Draw slots for photos.</p>
+        <div id="mapping-container">
+            <canvas id="mapping-canvas" tabindex="0"></canvas>
+            <div id="magnifier"></div>
         </div>
         
-        <canvas id="mapping-canvas" tabindex="0"></canvas>
-        
+        <!-- NEW Rotation & Adjustment Panel -->
+        <div id="mapping-controls-panel" class="hidden">
+            <div class="control-row">
+                <span id="slot-info-label" class="info-pill">Slot #1</span>
+                <span id="scale-value-label" class="info-pill">Scale: 100%</span>
+                <button id="delete-slot-btn" class="tool-btn" style="background: #dc3545; border-color: #dc3545; padding: 2px 8px; font-size: 0.8em;">Delete</button>
+            </div>
+            <div class="control-row">
+                <label style="font-size: 0.9em; color: #ddd;">Rotation:</label>
+                <button class="tool-btn" id="rot-ccw" title="-90°">↺</button>
+                <input type="range" id="rotation-slider" min="-180" max="180" value="0" step="1">
+                <button class="tool-btn" id="rot-cw" title="+90°">↻</button>
+                <span id="rotation-display" class="rot-display">0°</span>
+            </div>
+            <button id="confirm-adjustment-btn" class="btn-primary" style="width: 100%; padding: 8px; margin-top: 5px;">Done Editing</button>
+        </div>
+
         <div class="button-group">
-            <button id="confirm-adjustment-btn" class="btn" style="display: none;">Confirm Slot (Enter)</button>
+            <!-- confirm and delete moved into panel above -->
             <button id="change-template-btn" class="btn">Back</button> 
             <button id="reset-mapping-btn" class="btn">Reset</button>
             <button id="undo-btn" class="btn">Undo</button>
-            <button id="redo-btn" class="btn">Redo</button>
             <button id="start-mapped-btn" class="btn" style="display: none;">Start PhotoBooth</button>
         </div>
     </div>
 
-    <!-- View 2: Camera -->
+    <!-- View 2: Camera (IMMERSIVE) -->
     <div id="camera-view" class="view" tabindex="0">
         <div id="camera-top-bar">
-            <button id="close-camera-btn" class="icon-btn" title="Exit">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <button id="close-camera-btn" class="icon-btn" title="Back to Layout">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </button>
             <div style="display:flex; gap:10px;">
                  <button id="toggle-template-overlay-btn" class="icon-btn" title="Toggle Template Overlay">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                 </button>
-                <button id="toggle-flash-btn" class="icon-btn active" title="Toggle Flash">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                </button>
             </div>
         </div>
-        
-        <!-- Floating Controls -->
-        <div id="camera-controls">
-            <select id="timer-select" title="Countdown Timer">
-                <option value="3">3s Timer</option>
-                <option value="5" selected>5s Timer</option>
-                <option value="10">10s Timer</option>
-            </select>
-
-            <select id="filter-select" title="Photo Filter">
-                <option value="none" selected>Normal</option>
-                <option value="grayscale(100%)">B&W</option>
-                <option value="sepia(100%)">Sepia</option>
-                <option value="invert(100%)">Negative</option>
-                <option value="sepia(0.4) contrast(1.2) brightness(0.9)">Vintage</option>
-                <option value="saturate(2.0) hue-rotate(10deg) contrast(1.1)">Cyberpunk</option>
-                <option value="grayscale(1) contrast(1.5) brightness(0.9)">Dramatic</option>
-            </select>
-            
-            <label class="toggle-label">
-                <input type="checkbox" id="mirror-toggle"> Mirror
-            </label>
-        </div>
-        
         <div id="video-container">
             <video id="video-preview" autoplay playsinline muted></video>
+            <canvas id="ai-canvas" style="display:none;"></canvas>
+            <div id="grid-overlay">
+                <div class="grid-line grid-h" style="top: 33.33%;"></div>
+                <div class="grid-line grid-h" style="top: 66.66%;"></div>
+                <div class="grid-line grid-v" style="left: 33.33%;"></div>
+                <div class="grid-line grid-v" style="left: 66.66%;"></div>
+            </div>
             <img id="live-template-img" src="" alt="Template Overlay">
+            <div id="crop-frame-overlay"></div>
+            <img id="photo-preview-overlay" /> 
+            <div id="photo-counter-overlay">0 / 4</div>
+            <div id="countdown-overlay"></div>
         </div>
-        <div id="crop-frame-overlay"></div>
-        <div id="flash-overlay"></div> 
-        <img id="photo-preview-overlay" /> 
-        <div id="photo-counter-overlay">0 / 4</div>
-        <div id="countdown-overlay"></div>
-        <button id="capture-btn" title="Press Spacebar"></button>
+        <div id="camera-bottom-bar">
+            <div id="camera-controls">
+                <select id="timer-select" title="Countdown Timer">
+                    <option value="3">3s Timer</option>
+                    <option value="5" selected>5s Timer</option>
+                    <option value="10">10s Timer</option>
+                </select>
+                <select id="filter-select" title="Photo Filter">
+                    <option value="none" selected>Normal</option>
+                    <option value="grayscale(100%)">B&W</option>
+                    <option value="sepia(100%)">Sepia</option>
+                    <option value="invert(100%)">Negative</option>
+                    <option value="sepia(0.4) contrast(1.2) brightness(0.9)">Vintage</option>
+                    <option value="saturate(2.0) hue-rotate(10deg) contrast(1.1)">Cyberpunk</option>
+                    <option value="grayscale(1) contrast(1.5) brightness(0.9)">Dramatic</option>
+                </select>
+                <button id="toggle-ai-blur-btn" class="control-btn-small" title="AI Portrait Mode"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></button>
+                <button id="toggle-grid-btn" class="control-btn-small" title="Rule of Thirds Grid"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg></button>
+                <!-- Removed Gesture Button -->
+                <div id="zoom-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                    <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" title="Zoom">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                </div>
+                <label class="toggle-label"><input type="checkbox" id="mirror-toggle"> Mirror</label>
+            </div>
+            <button id="capture-btn" title="Press Spacebar"></button>
+        </div>
     </div>
 
     <!-- View 3: Preview & Edit -->
     <div id="preview-view" class="view">
         <h2>Make it Yours</h2>
         <div class="hint-text">Tip: Tap a photo to retake it specifically!</div>
-
         <div id="preview-container">
             <canvas id="merge-canvas"></canvas>
         </div>
-
         <div class="button-group">
             <button id="remap-btn" class="btn" style="display: none;">Remap</button> 
-            <button id="share-btn" class="btn">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Share
+            <button id="print-btn" class="btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Print
             </button>
-            <button id="save-btn" class="btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download
-            </button>
+            <button id="save-btn" class="btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download</button>
             <button id="retake-btn" class="btn">Retake All</button>
+            <button id="close-preview-btn" class="btn" style="background-color: #6c757d; display: none;">Close</button>
         </div>
     </div>
 
@@ -518,8 +624,7 @@
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
+                osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.type = 'square'; osc.frequency.value = 660; 
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
@@ -537,7 +642,6 @@
                 gain.gain.setValueAtTime(0.2, t + 0.2);
                 gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
                 osc.start(t); osc.stop(t + 0.8);
-
                 const osc2 = audioCtx.createOscillator();
                 const gain2 = audioCtx.createGain();
                 osc2.connect(gain2); gain2.connect(audioCtx.destination);
@@ -555,7 +659,6 @@
                 preview: document.getElementById('preview-view')
             };
             
-            // Template View
             const templateInput = document.getElementById('template-input');
             const fileNameEl = document.getElementById('file-name');
             const autoMapMsg = document.getElementById('auto-map-msg');
@@ -566,26 +669,60 @@
             const qsStripBtn = document.getElementById('qs-strip-btn');
             const qsGridBtn = document.getElementById('qs-grid-btn');
 
-            // Mapping View
+            // Settings & Layout Gen
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsBtn = document.getElementById('settings-btn');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const resolutionSelect = document.getElementById('resolution-select');
+            
+            const lgModal = document.getElementById('layout-generator-modal');
+            const openLgBtn = document.getElementById('open-layout-gen-btn');
+            const lgCancelBtn = document.getElementById('lg-cancel-btn');
+            const lgCreateBtn = document.getElementById('lg-create-btn');
+            const lgPreview = document.getElementById('lg-canvas-preview');
+            const lgInputs = {
+                rows: document.getElementById('lg-rows'),
+                cols: document.getElementById('lg-cols'),
+                padding: document.getElementById('lg-padding'),
+                gap: document.getElementById('lg-gap'),
+                color: document.getElementById('lg-color')
+            };
+
+            // Mapping
             const mappingCanvas = document.getElementById('mapping-canvas');
             const mappingCtx = mappingCanvas.getContext('2d');
+            const magnifier = document.getElementById('magnifier');
             const mappingInstructions = document.getElementById('mapping-instructions');
             const resetMappingBtn = document.getElementById('reset-mapping-btn');
             const changeTemplateBtn = document.getElementById('change-template-btn'); 
             const startMappedBtn = document.getElementById('start-mapped-btn');
             const undoBtn = document.getElementById('undo-btn');
-            const redoBtn = document.getElementById('redo-btn');
-            const adjustmentReadout = document.getElementById('adjustment-readout');
-            const rotationValueLabel = document.getElementById('rotation-value-label');
+            
+            // Updated Selection Elements
+            const deleteSlotBtn = document.getElementById('delete-slot-btn');
+            const mappingControlsPanel = document.getElementById('mapping-controls-panel');
+            const slotInfoLabel = document.getElementById('slot-info-label');
             const scaleValueLabel = document.getElementById('scale-value-label');
+            const rotationSlider = document.getElementById('rotation-slider');
+            const rotationDisplay = document.getElementById('rotation-display');
+            const rotCCW = document.getElementById('rot-ccw');
+            const rotCW = document.getElementById('rot-cw');
             const confirmAdjustmentBtn = document.getElementById('confirm-adjustment-btn');
             
-            // Camera View
+            // Tools
+            const toolRect = document.getElementById('tool-rect');
+            const toolCircle = document.getElementById('tool-circle');
+            const toolSnap = document.getElementById('tool-snap');
+            const toolRatio = document.getElementById('tool-ratio');
+
+            // Camera & Preview
             const cameraView = document.getElementById('camera-view'); 
+            const cameraControls = document.getElementById('camera-controls');
             const videoEl = document.getElementById('video-preview');
+            const aiCanvas = document.getElementById('ai-canvas');
+            const aiCtx = aiCanvas.getContext('2d');
             const liveTemplateImg = document.getElementById('live-template-img');
             const cropFrameOverlay = document.getElementById('crop-frame-overlay'); 
-            const flashOverlay = document.getElementById('flash-overlay'); 
             const captureBtn = document.getElementById('capture-btn');
             const photoCounterEl = document.getElementById('photo-counter-overlay');
             const countdownEl = document.getElementById('countdown-overlay');
@@ -593,64 +730,95 @@
             const filterSelect = document.getElementById('filter-select');
             const timerSelect = document.getElementById('timer-select');
             const mirrorToggle = document.getElementById('mirror-toggle');
-            const toggleFlashBtn = document.getElementById('toggle-flash-btn');
+            const toggleAiBlurBtn = document.getElementById('toggle-ai-blur-btn');
             const toggleOverlayBtn = document.getElementById('toggle-template-overlay-btn');
+            const toggleGridBtn = document.getElementById('toggle-grid-btn');
+            // Removed toggleGestureBtn
+            const zoomSlider = document.getElementById('zoom-slider');
+            const zoomContainer = document.getElementById('zoom-container');
+            
+            const gridOverlay = document.getElementById('grid-overlay');
 
-            // Preview & Edit View
             const mergeCanvas = document.getElementById('merge-canvas');
             const mergeCtx = mergeCanvas.getContext('2d');
             const retakeBtn = document.getElementById('retake-btn');
             const saveBtn = document.getElementById('save-btn');
-            const shareBtn = document.getElementById('share-btn');
             const remapBtn = document.getElementById('remap-btn'); 
+            const printBtn = document.getElementById('print-btn');
+            const closePreviewBtn = document.getElementById('close-preview-btn');
 
-            // Hidden Canvas
+            // Gallery (Converted to Modal)
+            const galleryBtn = document.getElementById('gallery-btn');
+            const galleryModal = document.getElementById('gallery-modal');
+            const closeGalleryBtn = document.getElementById('close-gallery-btn');
+            const galleryCloseBtnFooter = document.getElementById('gallery-close-btn-footer');
+            const galleryList = document.getElementById('gallery-list');
+
             const captureCanvas = document.getElementById('capture-canvas');
             const captureCtx = captureCanvas.getContext('2d');
 
+            const confirmModal = document.getElementById('confirm-modal');
+            const confirmMsg = document.getElementById('confirm-msg');
+            const confirmYes = document.getElementById('confirm-yes');
+            const confirmNo = document.getElementById('confirm-no');
+            let pendingRetakeIndex = null;
+
             // --- State Variables ---
             let stream = null;
+            let videoTrack = null;
             let templateImage = new Image();
             let templateImageData = null; 
             let useTemplate = false;
-            let capturedPhotos = []; // Array of DataURLs
+            let capturedPhotos = []; 
             let photoCount = 0;
             let countdownInterval = null;
-            let retakeIndex = null; // If not null, we are retaking this specific index
+            let retakeIndex = null; 
             const TARGET_ASPECT_RATIO = 16 / 9; 
             let numPhotosToTake = 4; 
-            let flashEnabled = true;
             let templateOverlayEnabled = false;
-
-            // Mapping State
+            let aiBlurEnabled = false;
+            // Removed gestureEnabled, handsDetector, gestureDebounce
+            let selfieSegmentation = null;
+            let animationFrameId = null;
+            let isCountingDown = false;
+            let isQuickStart = false; // New flag for navigation history
+            let gestureDebounce = 0;
+            let currentResolution = 'HD'; // HD or 4K
+            
             let photoSlots = []; 
+            let detectedHoles = []; // Store background snap targets
             let undoStack = []; 
+            let returnToGallery = false; // NEW: Flag to track navigation context
             let mappingState = { 
-                photoIndex: 1, clickCount: 0, startX: 0, startY: 0, tempX: 0, tempY: 0, 
-                tempSlot: null, isDragging: false, dragOffsetX: 0, dragOffsetY: 0,
-                initialPinchDistance: null, initialPinchAngle: null, baseScale: 1, baseRotation: 0
+                selectedIndex: -1, drawingShape: 'rect', aspectRatio: null, snapEnabled: true,
+                isCreating: false, startX: 0, startY: 0, tempX: 0, tempY: 0,
+                isDragging: false, dragType: null, dragOffsetX: 0, dragOffsetY: 0,
+                initialPinchDist: null, initialPinchAngle: null, baseWidth: 0, baseHeight: 0, baseCenterX: 0, baseCenterY: 0
             };
-
+            
             // --- Persistence ---
             function loadState() {
                 try {
                     const savedTemplate = localStorage.getItem('pb_template');
                     const savedSlots = localStorage.getItem('pb_slots');
                     const savedCount = localStorage.getItem('pb_count');
-                    
                     if (savedTemplate && savedSlots) {
                         const img = new Image();
                         img.onload = () => {
                             templateImage = img;
                             updateTemplateImageData(img);
+                            analyzeTemplateHoles(); // Find snap targets
                             photoSlots = JSON.parse(savedSlots);
                             numPhotosToTake = parseInt(savedCount) || 4;
                             photoCountSelect.value = numPhotosToTake;
                             fileNameEl.textContent = "Restored previous session.";
+                            startBtn.style.display = 'block';
                             startBtn.disabled = false;
                         };
                         img.src = savedTemplate;
                     }
+                    // Load Gallery
+                    renderGallery();
                 } catch (e) { console.log("Storage load failed", e); }
             }
             loadState(); 
@@ -664,6 +832,74 @@
                     }
                 } catch (e) { console.log("Storage save error", e); }
             }
+            
+            function saveToGallery(dataUrl) {
+                let gallery = [];
+                try {
+                    gallery = JSON.parse(sessionStorage.getItem('pb_gallery') || '[]');
+                } catch (e) { gallery = []; }
+
+                // Add new image
+                gallery.unshift(dataUrl);
+
+                // Prune if > 20 items hard limit (to prevent huge JSON parsing lag)
+                if (gallery.length > 20) gallery.length = 20;
+
+                let saved = false;
+                while (!saved && gallery.length > 0) {
+                    try {
+                        sessionStorage.setItem('pb_gallery', JSON.stringify(gallery));
+                        saved = true;
+                    } catch (e) {
+                        // If quota exceeded, remove the OLDEST image (last in array)
+                        if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                            // If we only have 1 item and it still fails, we can't save it.
+                            if (gallery.length > 1) {
+                                gallery.pop(); // Remove oldest
+                            } else {
+                                console.warn("Storage full: Image too large to save even as single item.");
+                                break; 
+                            }
+                        } else {
+                            console.error("Storage error:", e);
+                            break;
+                        }
+                    }
+                }
+                renderGallery();
+            }
+            
+            function renderGallery() {
+                const gallery = JSON.parse(sessionStorage.getItem('pb_gallery') || '[]');
+                galleryList.innerHTML = '';
+                if(gallery.length === 0) {
+                    galleryList.innerHTML = '<div class="gallery-empty">No photos in this session yet.</div>';
+                    return;
+                }
+                gallery.forEach(imgSrc => {
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+                    const img = document.createElement('img');
+                    img.src = imgSrc;
+                    item.appendChild(img);
+                    item.onclick = () => {
+                        const previewImg = new Image();
+                        previewImg.onload = () => {
+                            mergeCanvas.width = previewImg.width;
+                            mergeCanvas.height = previewImg.height;
+                            mergeCtx.drawImage(previewImg, 0, 0);
+                            showView('preview');
+                            remapBtn.style.display = 'none'; 
+                            galleryModal.style.display = 'none';
+                            retakeBtn.style.display = 'none'; 
+                            closePreviewBtn.style.display = 'inline-flex'; // Show close button
+                            returnToGallery = true; // NEW: Set flag to indicate we came from gallery
+                        };
+                        previewImg.src = imgSrc;
+                    };
+                    galleryList.appendChild(item);
+                });
+            }
 
             function updateTemplateImageData(img) {
                 const canvas = document.createElement('canvas');
@@ -673,109 +909,308 @@
                 templateImageData = ctx.getImageData(0, 0, img.width, img.height);
             }
 
-            // --- Auto-Detection ---
-            function detectTemplateSlots(img) {
-                updateTemplateImageData(img); 
-                const data = templateImageData.data;
-                const w = templateImageData.width; const h = templateImageData.height;
-                const visited = new Uint8Array(w * h);
-                const detected = [];
-                const isTransparent = (i) => data[i * 4 + 3] < 50; 
+            // --- AI & Gesture Setup ---
+            async function initMediaPipe() {
+                if (!selfieSegmentation) {
+                    selfieSegmentation = new SelfieSegmentation({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`});
+                    selfieSegmentation.setOptions({ modelSelection: 1 }); 
+                    selfieSegmentation.onResults(onSelfieResults);
+                }
+                // Removed Hands detector init
+            }
 
+            function onSelfieResults(results) {
+                if (!aiBlurEnabled) return;
+                aiCanvas.width = videoEl.videoWidth; aiCanvas.height = videoEl.videoHeight;
+                aiCtx.save(); aiCtx.clearRect(0, 0, aiCanvas.width, aiCanvas.height);
+                aiCtx.drawImage(results.segmentationMask, 0, 0, aiCanvas.width, aiCanvas.height);
+                aiCtx.globalCompositeOperation = 'source-in'; aiCtx.drawImage(results.image, 0, 0, aiCanvas.width, aiCanvas.height);
+                aiCtx.globalCompositeOperation = 'destination-over'; aiCtx.filter = 'blur(10px)'; aiCtx.drawImage(results.image, 0, 0, aiCanvas.width, aiCanvas.height);
+                aiCtx.restore();
+            }
+
+            // Removed onHandsResults function
+
+            async function startVideoProcessing() {
+                if (!videoEl.srcObject) return;
+                async function step() { 
+                    if (!stream) return;
+                    if (aiBlurEnabled) await selfieSegmentation.send({image: videoEl}); 
+                    // Removed handsDetector send
+                    animationFrameId = requestAnimationFrame(step); 
+                }
+                await initMediaPipe(); step();
+            }
+
+            toggleAiBlurBtn.addEventListener('click', () => {
+                aiBlurEnabled = !aiBlurEnabled; toggleAiBlurBtn.classList.toggle('active');
+                videoEl.style.opacity = aiBlurEnabled ? 0 : 1; aiCanvas.style.display = aiBlurEnabled ? 'block' : 'none';
+                if(mirrorToggle.checked) aiCanvas.classList.add('mirrored');
+                if (aiBlurEnabled) startVideoProcessing();
+            });
+
+            // Removed toggleGestureBtn event listener
+
+            toggleGridBtn.addEventListener('click', () => {
+                const isActive = gridOverlay.style.display === 'block';
+                gridOverlay.style.display = isActive ? 'none' : 'block';
+                toggleGridBtn.classList.toggle('active', !isActive);
+            });
+
+            // --- Modal Handlers ---
+            settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsModal.style.display = 'none';
+                currentResolution = resolutionSelect.value;
+            });
+            
+            galleryBtn.addEventListener('click', () => galleryModal.style.display = 'flex');
+            closeGalleryBtn.addEventListener('click', () => galleryModal.style.display = 'none');
+            galleryCloseBtnFooter.addEventListener('click', () => galleryModal.style.display = 'none');
+            
+            // --- Layout Generator ---
+            openLgBtn.addEventListener('click', () => { lgModal.style.display = 'flex'; updateLgPreview(); });
+            lgCancelBtn.addEventListener('click', () => lgModal.style.display = 'none');
+            Object.values(lgInputs).forEach(input => input.addEventListener('input', updateLgPreview));
+
+            function updateLgPreview() {
+                const rows = parseInt(lgInputs.rows.value); const cols = parseInt(lgInputs.cols.value);
+                const padding = parseInt(lgInputs.padding.value); const gap = parseInt(lgInputs.gap.value);
+                const photoW = 600; const photoH = 400; 
+                const totalW = (cols * photoW) + (padding * 2) + ((cols - 1) * gap);
+                const totalH = (rows * photoH) + (padding * 2) + ((rows - 1) * gap);
+                const cvs = document.createElement('canvas'); cvs.width = totalW; cvs.height = totalH;
+                const ctx = cvs.getContext('2d');
+                ctx.fillStyle = lgInputs.color.value; ctx.fillRect(0, 0, totalW, totalH);
+                for(let r=0; r<rows; r++) { for(let c=0; c<cols; c++) { ctx.clearRect(padding + c * (photoW + gap), padding + r * (photoH + gap), photoW, photoH); } }
+                lgPreview.src = cvs.toDataURL();
+            }
+
+            lgCreateBtn.addEventListener('click', () => {
+                templateImage.src = lgPreview.src; useTemplate = true;
+                const rows = parseInt(lgInputs.rows.value); const cols = parseInt(lgInputs.cols.value);
+                numPhotosToTake = rows * cols; photoCountSelect.value = numPhotosToTake;
+                templateImage.onload = () => {
+                    fileNameEl.textContent = "Custom Layout Generated"; updateTemplateImageData(templateImage);
+                    analyzeTemplateHoles(); // Analyze for snapping
+                    const padding = parseInt(lgInputs.padding.value); const gap = parseInt(lgInputs.gap.value); const photoW = 600; const photoH = 400;
+                    photoSlots = [];
+                    // Increased width padding to +10 (was +5)
+                    for(let r=0; r<rows; r++) { for(let c=0; c<cols; c++) { photoSlots.push({ centerX: padding + c * (photoW + gap) + photoW/2, centerY: padding + r * (photoH + gap) + photoH/2, width: photoW + 10, height: photoH + 2, rotation: 0, scale: 1, shape: 'rect' }); } }
+                    autoMapMsg.textContent = `✨ Generated ${numPhotosToTake} slot layout!`; autoMapMsg.style.display = 'block';
+                    startBtn.style.display = 'block'; startBtn.disabled = false; lgModal.style.display = 'none'; saveState();
+                };
+            });
+
+            // --- Auto-Detection & Analysis ---
+            
+            // NEW: Analyzes the template to find "Holes" and stores them as snap targets
+            function analyzeTemplateHoles() {
+                if (!templateImageData) return;
+                const data = templateImageData.data; const w = templateImageData.width; const h = templateImageData.height;
+                const visited = new Uint8Array(w * h); 
+                detectedHoles = []; // Clear previous
+
+                const isTransparent = (i) => data[i * 4 + 3] < 50; 
+                const rawRegions = [];
+                
                 for (let y = 0; y < h; y += 4) { 
                     for (let x = 0; x < w; x += 4) {
-                        const i = y * w + x;
+                        const i = y * w + x; 
                         if (visited[i] || !isTransparent(i)) continue;
+                        
+                        // Use existing flood fill to find regions
                         const region = performFloodFillMoments(x, y, w, h, data, visited);
-                        if (region.count > 1600) detected.push(region);
+                        
+                        // Initial noise filter (ignore tiny specks < 100px area)
+                        if (region.count > 100) {
+                            rawRegions.push(region);
+                        }
                     }
                 }
 
-                detected.sort((a, b) => {
-                    const rowThreshold = h * 0.1; 
-                    if (Math.abs(a.centerY - b.centerY) < rowThreshold) return a.centerX - b.centerX;
-                    return a.centerY - b.centerY;
-                });
+                // --- SMART FILTERING ---
+                // Sort regions by size (largest to smallest)
+                if (rawRegions.length > 0) {
+                    rawRegions.sort((a, b) => b.count - a.count);
+                    
+                    // The largest region is assumed to be a valid slot.
+                    const maxArea = rawRegions[0].count;
+                    
+                    // Filter: Keep only regions that are at least 15% of the size of the largest slot.
+                    // This removes small logos, text, or artifacts while keeping varying slot sizes (e.g., one big main photo and smaller strip photos).
+                    detectedHoles = rawRegions.filter(r => r.count > (maxArea * 0.15));
+                }
 
-                return detected.map(r => ({
-                    centerX: r.centerX, centerY: r.centerY,
-                    width: r.width + 2, height: r.height + 2,
-                    rotation: r.rotation, scale: 1
-                }));
+                console.log(`Analyzed template: Found ${detectedHoles.length} valid slots (filtered from ${rawRegions.length}).`);
+            }
+
+            function detectTemplateSlots(img) {
+                updateTemplateImageData(img); 
+                analyzeTemplateHoles(); // This now populates detectedHoles with the filtered list
+                
+                // Sort detected holes top-left to bottom-right for logical numbering
+                const detected = [...detectedHoles];
+                detected.sort((a, b) => { const rowThreshold = img.height * 0.1; if (Math.abs(a.centerY - b.centerY) < rowThreshold) return a.centerX - b.centerX; return a.centerY - b.centerY; });
+                
+                // Increased width padding to +10 (was +5)
+                return detected.map(r => ({ centerX: r.centerX, centerY: r.centerY, width: r.width + 10, height: r.height + 2, rotation: r.rotation, scale: 1, shape: 'rect' }));
             }
 
             function performFloodFillMoments(startX, startY, w, h, data, visited) {
-                const stack = [startX, startY];
-                let sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0, count = 0;
-                const points = []; 
-
+                const stack = [startX, startY]; 
+                let sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0, count = 0; 
+                const perimeterPoints = []; 
+                
                 while (stack.length) {
-                    const y = stack.pop(); const x = stack.pop();
-                    const i = y * w + x;
-                    if (visited[i]) continue;
+                    const y = stack.pop(); 
+                    const x = stack.pop(); 
+                    const i = y * w + x; 
+                    
+                    if (visited[i]) continue; 
                     visited[i] = 1;
+                    
+                    // Moments for Orientation Estimation
+                    sumX += x; sumY += y; 
+                    sumXX += x * x; sumYY += y * y; sumXY += x * y; 
+                    count++; 
 
-                    sumX += x; sumY += y;
-                    sumXX += x * x; sumYY += y * y; sumXY += x * y;
-                    count++;
-                    if (count % 4 === 0) points.push({x, y}); 
+                    // Edge Detection
+                    let isEdge = false;
+                    if (x+1 >= w || data[(y*w+(x+1))*4+3] >= 50) isEdge = true;
+                    else if (x-1 < 0 || data[(y*w+(x-1))*4+3] >= 50) isEdge = true;
+                    else if (y+1 >= h || data[((y+1)*w+x)*4+3] >= 50) isEdge = true;
+                    else if (y-1 < 0 || data[((y-1)*w+x)*4+3] >= 50) isEdge = true;
+
+                    if (isEdge) {
+                        perimeterPoints.push({x, y});
+                    }
 
                     if (x+1 < w && !visited[y*w+(x+1)] && data[(y*w+(x+1))*4+3] < 50) stack.push(x+1, y);
                     if (x-1 >= 0 && !visited[y*w+(x-1)] && data[(y*w+(x-1))*4+3] < 50) stack.push(x-1, y);
                     if (y+1 < h && !visited[(y+1)*w+x] && data[((y+1)*w+x)*4+3] < 50) stack.push(x, y+1);
                     if (y-1 >= 0 && !visited[(y-1)*w+x] && data[((y-1)*w+x)*4+3] < 50) stack.push(x, y-1);
                 }
-
-                const centerX = sumX / count; const centerY = sumY / count;
-                const u20 = sumXX / count - centerX * centerX;
-                const u02 = sumYY / count - centerY * centerY;
-                const u11 = sumXY / count - centerX * centerY;
-                let theta = 0.5 * Math.atan2(2 * u11, u20 - u02);
                 
-                let minU = Infinity, maxU = -Infinity;
-                let minV = Infinity, maxV = -Infinity;
-                const cos = Math.cos(-theta); const sin = Math.sin(-theta);
+                // Center of Mass (Reference Point)
+                const comX = sumX / count; 
+                const comY = sumY / count;
+                
+                // 1. Estimate Angle
+                const u20 = sumXX / count - comX * comX; 
+                const u02 = sumYY / count - comY * comY; 
+                const u11 = sumXY / count - comX * comY;
+                let initialTheta = 0.5 * Math.atan2(2 * u11, u20 - u02);
 
-                for (let p of points) {
-                    const dx = p.x - centerX; const dy = p.y - centerY;
-                    const u = dx * cos - dy * sin; const v = dx * sin + dy * cos;
-                    if (u < minU) minU = u; if (u > maxU) maxU = u;
-                    if (v < minV) minV = v; if (v > maxV) maxV = v;
+                // 2. Optimization: Find Exact Geometric Bounds
+                let bestTheta = initialTheta;
+                let bestArea = Infinity;
+                let bestBounds = { minU: 0, maxU: 0, minV: 0, maxV: 0 };
+
+                const anglesToCheck = [0, Math.PI/2];
+                for (let i = -10; i <= 10; i+=1) { // Finer step
+                    anglesToCheck.push(initialTheta + (i * Math.PI / 180));
                 }
 
-                return { centerX, centerY, width: maxU - minU, height: maxV - minV, rotation: theta, count };
+                const pointsToCheck = perimeterPoints.length > 0 ? perimeterPoints : [{x: comX, y: comY}];
+
+                for (let theta of anglesToCheck) {
+                    let minU = Infinity, maxU = -Infinity; 
+                    let minV = Infinity, maxV = -Infinity; 
+                    const cos = Math.cos(-theta); 
+                    const sin = Math.sin(-theta);
+                    
+                    // Project all edge points onto this angle's axes
+                    for (let p of pointsToCheck) { 
+                        const dx = p.x - comX; 
+                        const dy = p.y - comY; 
+                        
+                        // Rotate point relative to Center of Mass
+                        const u = dx * cos - dy * sin; 
+                        const v = dx * sin + dy * cos; 
+                        
+                        if (u < minU) minU = u; 
+                        if (u > maxU) maxU = u; 
+                        if (v < minV) minV = v; 
+                        if (v > maxV) maxV = v; 
+                    }
+                    
+                    const w = maxU - minU;
+                    const h = maxV - minV;
+                    const area = w * h;
+
+                    if (area < bestArea) {
+                        bestArea = area;
+                        bestTheta = theta;
+                        // Store the bounds relative to CoM so we can recalculate Geometric Center later
+                        bestBounds = { minU, maxU, minV, maxV };
+                    }
+                }
+
+                // 3. Snap Rotation
+                const snapThreshold = 1.5 * Math.PI / 180; 
+                if (Math.abs(bestTheta) < snapThreshold) bestTheta = 0;
+                else if (Math.abs(Math.abs(bestTheta) - Math.PI/2) < snapThreshold) bestTheta = Math.sign(bestTheta) * Math.PI/2;
+
+                // 4. Calculate Geometric Center (Fixing the Misalignment)
+                // The CoM is rarely the center of the bounding box. We shift the center based on the min/max bounds found.
+                const width = bestBounds.maxU - bestBounds.minU;
+                const height = bestBounds.maxV - bestBounds.minV;
+                
+                const midU = (bestBounds.minU + bestBounds.maxU) / 2;
+                const midV = (bestBounds.minV + bestBounds.maxV) / 2;
+
+                // Rotate the midpoint shift back to world coordinates
+                const cos = Math.cos(bestTheta); // Note: Positive theta here to rotate back
+                const sin = Math.sin(bestTheta);
+                
+                // Note: Our projection used -theta. So to go back:
+                // x = u * cos - v * sin
+                // y = u * sin + v * cos
+                // Wait, simpler:
+                // We projected: u = dx*cos(-t) - dy*sin(-t) => u = dx*C + dy*S
+                //               v = dx*sin(-t) + dy*cos(-t) => v = -dx*S + dy*C
+                // Inverse is:
+                // dx = u*C - v*S
+                // dy = u*S + v*C
+                // Using standard rotation matrix logic where theta was the rotation of the AXIS.
+                // Let's stick to the standard inverse rotation matrix.
+                
+                const C = Math.cos(-bestTheta);
+                const S = Math.sin(-bestTheta);
+                
+                // Inverse of rotation matrix [[C, -S], [S, C]] is [[C, S], [-S, C]]
+                const shiftX = midU * C + midV * S; // Transpose row 1
+                const shiftY = midU * (-S) + midV * C; // Transpose row 2 (Simplified: Inverse rotation)
+
+                const finalCenterX = comX + (midU * Math.cos(bestTheta) - midV * Math.sin(bestTheta));
+                const finalCenterY = comY + (midU * Math.sin(bestTheta) + midV * Math.cos(bestTheta));
+
+                return { 
+                    centerX: finalCenterX, 
+                    centerY: finalCenterY, 
+                    width: width, // No extra padding, fit exactly to edges
+                    height: height, 
+                    rotation: bestTheta, 
+                    count 
+                };
             }
 
-            // --- Quick Start Templates ---
+            // --- Quick Start ---
             function generateTemplate(type) {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
+                const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
                 if (type === 'strip') {
-                    canvas.width = 600; canvas.height = 1800;
-                    ctx.fillStyle = 'white'; ctx.fillRect(0,0,600,1800);
+                    canvas.width = 600; canvas.height = 1800; ctx.fillStyle = 'white'; ctx.fillRect(0,0,600,1800);
                     ctx.clearRect(50, 50, 500, 500); ctx.clearRect(50, 650, 500, 500); ctx.clearRect(50, 1250, 500, 500);
                     numPhotosToTake = 3;
-                    photoSlots = [
-                        {centerX: 300, centerY: 300, width: 500, height: 500, rotation: 0, scale: 1},
-                        {centerX: 300, centerY: 900, width: 500, height: 500, rotation: 0, scale: 1},
-                        {centerX: 300, centerY: 1500, width: 500, height: 500, rotation: 0, scale: 1}
-                    ];
+                    photoSlots = [ {centerX: 300, centerY: 300, width: 500, height: 500, rotation: 0, scale: 1, shape: 'rect'}, {centerX: 300, centerY: 900, width: 500, height: 500, rotation: 0, scale: 1, shape: 'rect'}, {centerX: 300, centerY: 1500, width: 500, height: 500, rotation: 0, scale: 1, shape: 'rect'} ];
                 } else if (type === 'grid') {
-                    canvas.width = 1200; canvas.height = 1200;
-                    ctx.fillStyle = 'white'; ctx.fillRect(0,0,1200,1200);
-                    ctx.clearRect(50, 50, 525, 525); ctx.clearRect(625, 50, 525, 525);
-                    ctx.clearRect(50, 625, 525, 525); ctx.clearRect(625, 625, 525, 525);
+                    canvas.width = 1200; canvas.height = 1200; ctx.fillStyle = 'white'; ctx.fillRect(0,0,1200,1200);
+                    ctx.clearRect(50, 50, 525, 525); ctx.clearRect(625, 50, 525, 525); ctx.clearRect(50, 625, 525, 525); ctx.clearRect(625, 625, 525, 525);
                     numPhotosToTake = 4;
-                    photoSlots = [
-                        {centerX: 312.5, centerY: 312.5, width: 525, height: 525, rotation: 0, scale: 1},
-                        {centerX: 887.5, centerY: 312.5, width: 525, height: 525, rotation: 0, scale: 1},
-                        {centerX: 312.5, centerY: 887.5, width: 525, height: 525, rotation: 0, scale: 1},
-                        {centerX: 887.5, centerY: 887.5, width: 525, height: 525, rotation: 0, scale: 1}
-                    ];
+                    photoSlots = [ {centerX: 312.5, centerY: 312.5, width: 525, height: 525, rotation: 0, scale: 1, shape: 'rect'}, {centerX: 887.5, centerY: 312.5, width: 525, height: 525, rotation: 0, scale: 1, shape: 'rect'}, {centerX: 312.5, centerY: 887.5, width: 525, height: 525, rotation: 0, scale: 1, shape: 'rect'}, {centerX: 887.5, centerY: 887.5, width: 525, height: 525, rotation: 0, scale: 1, shape: 'rect'} ];
                 }
-                photoCountSelect.value = numPhotosToTake;
-                return canvas.toDataURL('image/png');
+                photoCountSelect.value = numPhotosToTake; return canvas.toDataURL('image/png');
             }
 
             // --- Helpers ---
@@ -785,17 +1220,11 @@
                 if (viewName === 'camera') {
                     cameraView.focus();
                     const filter = filterSelect.value;
-                    videoEl.style.filter = filter;
-                    if(mirrorToggle.checked) videoEl.classList.add('mirrored');
-                    else videoEl.classList.remove('mirrored');
-                    
-                    // Update Live Overlay Image
-                    if (useTemplate && templateImage.src) {
-                        liveTemplateImg.src = templateImage.src;
-                        liveTemplateImg.style.display = templateOverlayEnabled ? 'block' : 'none';
-                    } else {
-                        liveTemplateImg.style.display = 'none';
-                    }
+                    videoEl.style.filter = filter; aiCanvas.style.filter = filter;
+                    if(mirrorToggle.checked) { videoEl.classList.add('mirrored'); aiCanvas.classList.add('mirrored'); } 
+                    else { videoEl.classList.remove('mirrored'); aiCanvas.classList.remove('mirrored'); }
+                    if (useTemplate && templateImage.src) { liveTemplateImg.src = templateImage.src; liveTemplateImg.style.display = templateOverlayEnabled ? 'block' : 'none'; } 
+                    else { liveTemplateImg.style.display = 'none'; }
                 }
             }
 
@@ -809,26 +1238,30 @@
                     cameraSelect.innerHTML = ''; 
                     if (videoDevices.length === 0) cameraSelect.innerHTML = '<option value="">No cameras found</option>';
                     else {
-                        videoDevices.forEach(device => {
-                            const option = document.createElement('option');
-                            option.value = device.deviceId;
-                            option.textContent = device.label || `Camera ${cameraSelect.options.length + 1}`;
-                            cameraSelect.appendChild(option);
-                        });
+                        videoDevices.forEach(device => { const option = document.createElement('option'); option.value = device.deviceId; option.textContent = device.label || `Camera ${cameraSelect.options.length + 1}`; cameraSelect.appendChild(option); });
                         cameraSelect.selectedIndex = 0;
                     }
                 } catch (err) { console.error("Error accessing camera:", err); cameraSelect.innerHTML = '<option value="">Camera access denied</option>'; }
             }
 
             // --- Events ---
-            qsStripBtn.addEventListener('click', () => {
-                templateImage.src = generateTemplate('strip'); useTemplate = true;
-                templateImage.onload = () => { updateTemplateImageData(templateImage); saveState(); showView('camera'); startCamera(); };
+            qsStripBtn.addEventListener('click', () => { 
+                templateImage.src = generateTemplate('strip'); 
+                useTemplate = true; 
+                isQuickStart = true; // Set flag
+                templateImage.onload = () => { updateTemplateImageData(templateImage); analyzeTemplateHoles(); saveState(); showView('camera'); startCamera(); }; 
             });
-
-            qsGridBtn.addEventListener('click', () => {
-                templateImage.src = generateTemplate('grid'); useTemplate = true;
-                templateImage.onload = () => { updateTemplateImageData(templateImage); saveState(); showView('camera'); startCamera(); };
+            qsGridBtn.addEventListener('click', () => { 
+                templateImage.src = generateTemplate('grid'); 
+                useTemplate = true; 
+                isQuickStart = true; // Set flag
+                templateImage.onload = () => { updateTemplateImageData(templateImage); analyzeTemplateHoles(); saveState(); showView('camera'); startCamera(); }; 
+            });
+            qsGridBtn.addEventListener('click', () => { 
+                templateImage.src = generateTemplate('grid'); 
+                useTemplate = true; 
+                isQuickStart = true; // Set flag
+                templateImage.onload = () => { updateTemplateImageData(templateImage); saveState(); showView('camera'); startCamera(); }; 
             });
 
             templateInput.addEventListener('change', () => {
@@ -838,63 +1271,41 @@
                     reader.onload = (e) => {
                         templateImage.src = e.target.result;
                         templateImage.onload = () => {
-                            fileNameEl.textContent = file.name; startBtn.disabled = false;
+                            fileNameEl.textContent = file.name; startBtn.style.display = 'block'; startBtn.disabled = false;
                             const detected = detectTemplateSlots(templateImage);
-                            if (detected.length > 0) {
-                                photoSlots = detected; numPhotosToTake = detected.length; photoCountSelect.value = numPhotosToTake;
-                                autoMapMsg.textContent = `✨ Auto-mapped ${numPhotosToTake} photo slots!`; autoMapMsg.style.display = 'block';
-                            } else {
-                                photoSlots = []; autoMapMsg.style.display = 'none';
-                            }
+                            if (detected.length > 0) { photoSlots = detected; numPhotosToTake = detected.length; photoCountSelect.value = numPhotosToTake; autoMapMsg.textContent = `✨ Auto-mapped ${numPhotosToTake} photo slots!`; autoMapMsg.style.display = 'block'; } 
+                            else { photoSlots = []; autoMapMsg.style.display = 'none'; }
                         };
                     };
                     reader.readAsDataURL(file);
                 }
             });
 
-            photoCountSelect.addEventListener('change', () => {
-                numPhotosToTake = parseInt(photoCountSelect.value, 10);
-                if (views.mapping.style.display === 'flex') setupMappingView();
-            });
-
-            startBtn.addEventListener('click', () => {
+            photoCountSelect.addEventListener('change', () => { numPhotosToTake = parseInt(photoCountSelect.value, 10); if (views.mapping.style.display === 'flex') setupMappingView(); });
+            
+            startBtn.addEventListener('click', () => { 
                 useTemplate = true; 
-                if (photoSlots.length > 0 && photoSlots.length === numPhotosToTake) { setupMappingView(); showView('mapping'); } 
-                else { setupMappingView(); showView('mapping'); }
+                isQuickStart = false; // Manual mapping flow
+                setupMappingView(); 
+                showView('mapping'); 
             });
-
+            
             startNoTemplateBtn.addEventListener('click', () => { useTemplate = false; showView('camera'); startCamera(); });
-
-            filterSelect.addEventListener('change', () => {
-                videoEl.style.filter = filterSelect.value;
-                document.getElementById('photo-preview-overlay').style.filter = filterSelect.value;
-            });
-
-            mirrorToggle.addEventListener('change', () => {
-                if (mirrorToggle.checked) videoEl.classList.add('mirrored'); else videoEl.classList.remove('mirrored');
-            });
-
-            toggleFlashBtn.addEventListener('click', () => {
-                flashEnabled = !flashEnabled;
-                toggleFlashBtn.classList.toggle('active');
-                toggleFlashBtn.querySelector('svg').style.opacity = flashEnabled ? 1 : 0.5;
-            });
-
-            toggleOverlayBtn.addEventListener('click', () => {
-                templateOverlayEnabled = !templateOverlayEnabled;
-                toggleOverlayBtn.classList.toggle('active');
-                liveTemplateImg.style.display = templateOverlayEnabled && useTemplate ? 'block' : 'none';
-            });
+            filterSelect.addEventListener('change', () => { const filter = filterSelect.value; videoEl.style.filter = filter; aiCanvas.style.filter = filter; document.getElementById('photo-preview-overlay').style.filter = filter; });
+            toggleOverlayBtn.addEventListener('click', () => { templateOverlayEnabled = !templateOverlayEnabled; toggleOverlayBtn.classList.toggle('active'); liveTemplateImg.style.display = templateOverlayEnabled && useTemplate ? 'block' : 'none'; });
 
             // --- Mapping Logic ---
+            toolRect.addEventListener('click', () => { mappingState.drawingShape = 'rect'; toolRect.classList.add('active'); toolCircle.classList.remove('active'); });
+            toolCircle.addEventListener('click', () => { mappingState.drawingShape = 'circle'; toolCircle.classList.add('active'); toolRect.classList.remove('active'); });
+            toolSnap.addEventListener('click', () => { mappingState.snapEnabled = !mappingState.snapEnabled; toolSnap.classList.toggle('active'); });
+            toolRatio.addEventListener('click', () => {
+                if (!mappingState.aspectRatio) { mappingState.aspectRatio = 4/3; toolRatio.textContent = "4:3"; }
+                else if (mappingState.aspectRatio === 4/3) { mappingState.aspectRatio = 16/9; toolRatio.textContent = "16:9"; }
+                else { mappingState.aspectRatio = null; toolRatio.textContent = "Free"; }
+            });
+
             function setupMappingView() {
-                if(photoSlots.length === numPhotosToTake) {
-                    mappingState.photoIndex = numPhotosToTake + 1; mappingState.clickCount = 0; startMappedBtn.style.display = 'block';
-                } else {
-                    if(photoSlots.length === 0) photoSlots = []; 
-                    mappingState.photoIndex = photoSlots.length + 1; mappingState.clickCount = 0; startMappedBtn.style.display = 'none';
-                }
-                mappingState.tempSlot = null;
+                mappingState.selectedIndex = -1; mappingState.isCreating = false; mappingState.isDragging = false;
                 const templateAspect = templateImage.width / templateImage.height;
                 const maxW = window.innerWidth * 0.95; const maxH = (window.innerHeight - 250); 
                 let displayW = maxW; let displayH = maxW / templateAspect;
@@ -904,443 +1315,647 @@
                 updateMappingInstructions(); drawCurrentMapping(); updateButtonStates(); mappingCanvas.focus();
             }
 
-            function updateButtonStates() {
-                undoBtn.disabled = photoSlots.length === 0; redoBtn.disabled = undoStack.length === 0;
+            function updateButtonStates() { 
+                undoBtn.disabled = photoSlots.length === 0; 
+                startMappedBtn.style.display = photoSlots.length === numPhotosToTake ? 'block' : 'none';
+                
+                // Toggle Control Panel visibility
+                mappingControlsPanel.classList.toggle('hidden', mappingState.selectedIndex === -1);
+                
+                if(mappingState.selectedIndex !== -1) {
+                    const s = photoSlots[mappingState.selectedIndex];
+                    slotInfoLabel.textContent = `Slot #${mappingState.selectedIndex + 1}`;
+                    scaleValueLabel.textContent = `Scale: ${Math.round(s.scale * 100)}%`;
+                    
+                    // Normalize rotation for UI (degrees)
+                    let deg = Math.round(s.rotation * 180 / Math.PI);
+                    // Keep within -180 to 180 for slider
+                    deg = deg % 360;
+                    if (deg > 180) deg -= 360;
+                    if (deg <= -180) deg += 360;
+                    
+                    rotationSlider.value = deg;
+                    rotationDisplay.textContent = `${deg}°`;
+                }
             }
 
             function updateMappingInstructions() {
-                if (mappingState.photoIndex > numPhotosToTake) { 
-                    mappingInstructions.textContent = "Mapping Complete! Click 'Start PhotoBooth'.";
-                    startMappedBtn.style.display = 'block'; mappingCanvas.style.cursor = 'default';
-                    confirmAdjustmentBtn.style.display = 'none'; adjustmentReadout.classList.add('hidden');
-                    return;
-                }
-                startMappedBtn.style.display = 'none';
-                let step = "";
-                if (mappingState.clickCount === 0) step = "Click **TOP-LEFT** corner or **inside a hole** to Auto-Detect.";
-                else if (mappingState.clickCount === 1) step = "Click **BOTTOM-RIGHT** corner. (ESC to cancel)";
-                else if (mappingState.clickCount === 2) {
-                    step = "Adjust & Confirm (Enter)."; confirmAdjustmentBtn.style.display = 'inline-block'; adjustmentReadout.classList.remove('hidden');
-                }
-                mappingInstructions.innerHTML = `Photo **${mappingState.photoIndex}/${numPhotosToTake}**: ${step}`; 
+                if (photoSlots.length === numPhotosToTake && mappingState.selectedIndex === -1) { mappingInstructions.textContent = "All slots filled! Click 'Start PhotoBooth' or select a slot to edit."; } 
+                else if (mappingState.selectedIndex !== -1) { mappingInstructions.textContent = "Use slider to rotate. Drag corners to resize."; } 
+                else { mappingInstructions.innerHTML = `Draw Slot **${photoSlots.length + 1}/${numPhotosToTake}**. Click inside holes to Auto-Detect.`; }
             }
 
-            function cancelCurrentSelection() {
-                if (mappingState.clickCount === 1 || mappingState.clickCount === 2) {
-                    mappingState.clickCount = 0; mappingState.tempSlot = null; mappingState.isDragging = false;
-                    confirmAdjustmentBtn.style.display = 'none'; adjustmentReadout.classList.add('hidden');
-                    updateMappingInstructions(); drawCurrentMapping();
-                }
+            // --- NEW: Rotation Event Listeners ---
+            rotationSlider.addEventListener('input', (e) => {
+                if (mappingState.selectedIndex === -1) return;
+                const s = photoSlots[mappingState.selectedIndex];
+                const deg = parseInt(e.target.value);
+                s.rotation = deg * Math.PI / 180;
+                rotationDisplay.textContent = `${deg}°`;
+                drawCurrentMapping();
+                // No saveState on every drag for performance, add 'change' listener if needed, 
+                // but 'input' is smoother visually. We save on mouseup/confirm.
+            });
+
+            // Save state when slider released
+            rotationSlider.addEventListener('change', saveState);
+
+            function rotateSelectedSlot(angleDeg) {
+                if (mappingState.selectedIndex === -1) return;
+                const s = photoSlots[mappingState.selectedIndex];
+                let deg = Math.round(s.rotation * 180 / Math.PI);
+                deg += angleDeg;
+                s.rotation = deg * Math.PI / 180;
+                drawCurrentMapping();
+                updateButtonStates(); // Refreshes the slider/text
+                saveState();
             }
 
-            function drawRotatedRect(ctx, slot, scaleX, scaleY, color, label) {
-                const dispCX = slot.centerX * scaleX; const dispCY = slot.centerY * scaleY;
+            rotCCW.addEventListener('click', () => rotateSelectedSlot(-90));
+            rotCW.addEventListener('click', () => rotateSelectedSlot(90));
+            
+            // --- Existing Draw Logic ---
+
+            function drawRotatedRect(ctx, slot, scaleX, scaleY, color, label, isSelected) {
+                const dispCX = slot.centerX * scaleX; const dispCY = slot.centerY * scaleY; 
                 const dispW = (slot.width * scaleX) * slot.scale; const dispH = (slot.height * scaleY) * slot.scale;
-                ctx.save(); ctx.translate(dispCX, dispCY); ctx.rotate(slot.rotation);
-                ctx.strokeStyle = color; ctx.lineWidth = 4;
-                ctx.strokeRect(-dispW / 2, -dispH / 2, dispW, dispH);
-                ctx.fillStyle = color; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(label, 0, 0); ctx.restore();
+                ctx.save(); ctx.translate(dispCX, dispCY); ctx.rotate(slot.rotation); 
+                ctx.strokeStyle = color; ctx.lineWidth = isSelected ? 3 : 2;
+                if (slot.shape === 'circle') { ctx.beginPath(); ctx.ellipse(0, 0, dispW/2, dispH/2, 0, 0, 2 * Math.PI); ctx.stroke(); } 
+                else { ctx.strokeRect(-dispW / 2, -dispH / 2, dispW, dispH); }
+                if (isSelected) { ctx.fillStyle = '#fff'; const hSize = 8; ctx.fillRect(-dispW/2 - hSize/2, -dispH/2 - hSize/2, hSize, hSize); ctx.fillRect(dispW/2 - hSize/2, -dispH/2 - hSize/2, hSize, hSize); ctx.fillRect(-dispW/2 - hSize/2, dispH/2 - hSize/2, hSize, hSize); ctx.fillRect(dispW/2 - hSize/2, dispH/2 - hSize/2, hSize, hSize); }
+                ctx.fillStyle = color; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 0, 0); ctx.restore();
             }
 
             function drawCurrentMapping() {
-                const displayW = mappingCanvas.width; const displayH = mappingCanvas.height;
+                const displayW = mappingCanvas.width; const displayH = mappingCanvas.height; 
                 const scaleX = displayW / templateImage.width; const scaleY = displayH / templateImage.height;
                 mappingCtx.clearRect(0, 0, displayW, displayH); mappingCtx.drawImage(templateImage, 0, 0, displayW, displayH);
-                photoSlots.forEach((slot, index) => { drawRotatedRect(mappingCtx, slot, scaleX, scaleY, '#ffcc00', `Photo ${index + 1}`); });
-                if (mappingState.clickCount === 2 && mappingState.tempSlot) {
-                    drawRotatedRect(mappingCtx, mappingState.tempSlot, scaleX, scaleY, 'red', `Photo ${mappingState.photoIndex}`);
+                
+                // Debug Visualization: Draw detected background holes as blue crosses
+                if (mappingState.snapEnabled) {
+                    mappingCtx.save();
+                    mappingCtx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+                    mappingCtx.lineWidth = 1;
+                    detectedHoles.forEach(hole => {
+                        const hx = hole.centerX * scaleX;
+                        const hy = hole.centerY * scaleY;
+                        mappingCtx.beginPath();
+                        mappingCtx.moveTo(hx - 5, hy); mappingCtx.lineTo(hx + 5, hy);
+                        mappingCtx.moveTo(hx, hy - 5); mappingCtx.lineTo(hx, hy + 5);
+                        mappingCtx.stroke();
+                    });
+                    mappingCtx.restore();
+                }
+
+                photoSlots.forEach((slot, index) => { drawRotatedRect(mappingCtx, slot, scaleX, scaleY, index === mappingState.selectedIndex ? '#00ff00' : '#ffcc00', `${index + 1}`, index === mappingState.selectedIndex); });
+                if (mappingState.isCreating) {
+                    const w = mappingState.tempX - mappingState.startX; const h = mappingState.tempY - mappingState.startY;
+                    mappingCtx.strokeStyle = 'cyan'; mappingCtx.lineWidth = 2; mappingCtx.setLineDash([5, 5]); 
+                    if (mappingState.drawingShape === 'circle') { const rx = Math.abs(w)/2; const ry = Math.abs(h)/2; const cx = mappingState.startX + w/2; const cy = mappingState.startY + h/2; mappingCtx.beginPath(); mappingCtx.ellipse(cx, cy, rx, ry, 0, 0, 2*Math.PI); mappingCtx.stroke(); } 
+                    else { mappingCtx.strokeRect(mappingState.startX, mappingState.startY, w, h); }
+                    mappingCtx.setLineDash([]); 
                 }
             }
 
+            // --- FIX: Correct Coordinate Mapping for CSS Scaling ---
             function getCoords(e) {
+                const rect = mappingCanvas.getBoundingClientRect(); 
+                let clientX, clientY; 
+                if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else { clientX = e.clientX; clientY = e.clientY; }
+                
+                // 1. Screen Coordinates (relative to element visual top-left)
+                const screenX = clientX - rect.left; 
+                const screenY = clientY - rect.top; 
+
+                // 2. Calculate scaling ratio between Visual Size (CSS) and Internal Size (Resolution)
+                // This fixes the offset when the canvas is shrunk by max-width/max-height
+                const domScaleX = mappingCanvas.width / rect.width;
+                const domScaleY = mappingCanvas.height / rect.height;
+
+                // 3. Internal Canvas Coordinates (Used for Hit Testing & Drawing)
+                const canvasX = screenX * domScaleX;
+                const canvasY = screenY * domScaleY;
+
+                // 4. Original Image Coordinates (Used for Data Storage)
+                const imgScaleX = templateImage.width / mappingCanvas.width;
+                const imgScaleY = templateImage.height / mappingCanvas.height;
+                
+                const originalX = canvasX * imgScaleX;
+                const originalY = canvasY * imgScaleY;
+
+                return { canvasX, canvasY, originalX, originalY };
+            }
+
+            function hitTest(x, y) {
+                const scaleX = mappingCanvas.width / templateImage.width; const scaleY = mappingCanvas.height / templateImage.height;
+                if (mappingState.selectedIndex !== -1) {
+                    const s = photoSlots[mappingState.selectedIndex];
+                    const dispCX = s.centerX * scaleX; const dispCY = s.centerY * scaleY;
+                    const dispW = (s.width * scaleX) * s.scale; const dispH = (s.height * scaleY) * s.scale; const hSize = 15;
+                    const dx = x - dispCX; const dy = y - dispCY;
+                    const rx = dx * Math.cos(-s.rotation) - dy * Math.sin(-s.rotation); const ry = dx * Math.sin(-s.rotation) + dy * Math.cos(-s.rotation);
+                    if (Math.abs(rx - (-dispW/2)) < hSize && Math.abs(ry - (-dispH/2)) < hSize) return { index: mappingState.selectedIndex, type: 'tl' };
+                    if (Math.abs(rx - (dispW/2)) < hSize && Math.abs(ry - (-dispH/2)) < hSize) return { index: mappingState.selectedIndex, type: 'tr' };
+                    if (Math.abs(rx - (-dispW/2)) < hSize && Math.abs(ry - (dispH/2)) < hSize) return { index: mappingState.selectedIndex, type: 'bl' };
+                    if (Math.abs(rx - (dispW/2)) < hSize && Math.abs(ry - (dispH/2)) < hSize) return { index: mappingState.selectedIndex, type: 'br' };
+                }
+                for (let i = photoSlots.length - 1; i >= 0; i--) {
+                    const s = photoSlots[i];
+                    const dispCX = s.centerX * scaleX; const dispCY = s.centerY * scaleY;
+                    const dispW = (s.width * scaleX) * s.scale; const dispH = (s.height * scaleY) * s.scale;
+                    const dx = x - dispCX; const dy = y - dispCY;
+                    const rx = dx * Math.cos(-s.rotation) - dy * Math.sin(-s.rotation); const ry = dx * Math.sin(-s.rotation) + dy * Math.cos(-s.rotation);
+                    if (Math.abs(rx) < dispW/2 && Math.abs(ry) < dispH/2) return { index: i, type: 'move' };
+                }
+                return null;
+            }
+
+            function updateMagnifier(canvasX, canvasY) {
+                if (!mappingState.isDragging && !mappingState.isCreating) { magnifier.style.display = 'none'; return; }
+                
+                // Convert Internal Canvas Coords -> Screen Coords for positioning the div
                 const rect = mappingCanvas.getBoundingClientRect();
-                let clientX, clientY;
-                if (e.touches) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } 
-                else { clientX = e.clientX; clientY = e.clientY; }
-                const canvasX = clientX - rect.left; const canvasY = clientY - rect.top;
-                const scaleX = templateImage.width / mappingCanvas.width; const scaleY = templateImage.height / mappingCanvas.height;
-                return { canvasX, canvasY, originalX: canvasX * scaleX, originalY: canvasY * scaleY };
+                const domScaleX = rect.width / mappingCanvas.width;
+                const domScaleY = rect.height / mappingCanvas.height;
+                const screenX = canvasX * domScaleX;
+                const screenY = canvasY * domScaleY;
+
+                magnifier.style.display = 'block'; 
+                magnifier.style.left = (screenX + 20) + 'px'; 
+                magnifier.style.top = (screenY - 60) + 'px'; 
+                
+                const zoom = 2; 
+                magnifier.style.backgroundImage = `url(${templateImage.src})`; 
+                // Use internal canvasX/Y for accurate background positioning relative to image content
+                // We need to map canvasX -> imageX, then apply zoom
+                const scaleX = templateImage.width / mappingCanvas.width;
+                const scaleY = templateImage.height / mappingCanvas.height;
+                const imgX = canvasX * scaleX;
+                const imgY = canvasY * scaleY;
+
+                magnifier.style.backgroundSize = `${templateImage.width * zoom}px ${templateImage.height * zoom}px`; 
+                magnifier.style.backgroundPosition = `-${imgX * zoom - 50}px -${imgY * zoom - 50}px`;
             }
 
             mappingCanvas.addEventListener('mousedown', (e) => {
-                if (mappingState.photoIndex > numPhotosToTake || e.button !== 0) return; 
-                e.preventDefault(); const coords = getCoords(e);
-                if (mappingState.clickCount < 2) handleMapClick(coords); else startDrag(coords);
-            });
-            mappingCanvas.addEventListener('mousemove', (e) => {
-                const coords = getCoords(e);
-                if (mappingState.isDragging) handleDrag(coords);
-                else if (mappingState.clickCount === 1) {
-                    drawCurrentMapping(); 
-                    const w = coords.canvasX - mappingState.tempX; const h = coords.canvasY - mappingState.tempY;
-                    mappingCtx.strokeStyle = 'red'; mappingCtx.lineWidth = 2; mappingCtx.setLineDash([5, 5]); 
-                    mappingCtx.strokeRect(mappingState.tempX, mappingState.tempY, w, h); mappingCtx.setLineDash([]); 
-                }
-            });
-            mappingCanvas.addEventListener('mouseup', () => { mappingState.isDragging = false; });
-            mappingCanvas.addEventListener('wheel', (e) => {
-                if (mappingState.clickCount !== 2 || !mappingState.tempSlot) return;
                 e.preventDefault(); 
-                if (e.shiftKey) { 
-                    const rotateAmount = e.deltaY > 0 ? -0.03 : 0.03;
-                    mappingState.tempSlot.rotation += rotateAmount;
-                    rotationValueLabel.textContent = `Rotation: ${Math.round(mappingState.tempSlot.rotation * 180 / Math.PI)}°`;
-                } else { 
-                    const scaleAmount = e.deltaY > 0 ? -0.02 : 0.02;
-                    let newScale = mappingState.tempSlot.scale + scaleAmount;
-                    newScale = Math.max(0.1, Math.min(newScale, 3.0));
-                    mappingState.tempSlot.scale = newScale;
-                    scaleValueLabel.textContent = `Scale: ${Math.round(newScale * 100)}%`;
-                }
-                drawCurrentMapping();
-            });
-
-            function handleMapClick(coords) {
-                undoStack = [];
-                if (mappingState.clickCount === 0) {
+                const coords = getCoords(e); 
+                // Use Canvas Coords for Hit Test (as drawing is in Canvas Space)
+                const hit = hitTest(coords.canvasX, coords.canvasY);
+                
+                if (hit) {
+                    mappingState.selectedIndex = hit.index; mappingState.dragType = hit.type; mappingState.isDragging = true;
+                    // Use Original Image Coords for data manipulation
+                    mappingState.dragOffsetX = coords.originalX; mappingState.dragOffsetY = coords.originalY;
+                    const s = photoSlots[hit.index]; mappingState.baseWidth = s.width * s.scale; mappingState.baseHeight = s.height * s.scale; mappingState.baseCenterX = s.centerX; mappingState.baseCenterY = s.centerY;
+                } else {
+                    if (mappingState.selectedIndex !== -1) { mappingState.selectedIndex = -1; updateButtonStates(); drawCurrentMapping(); return; }
                     let magicWandSuccess = false;
                     if (templateImageData) {
                         const ix = Math.floor(coords.originalX); const iy = Math.floor(coords.originalY);
                         if (ix >= 0 && ix < templateImageData.width && iy >= 0 && iy < templateImageData.height) {
                             const idx = (iy * templateImageData.width + ix) * 4;
                             if (templateImageData.data[idx + 3] < 50) {
-                                const visited = new Uint8Array(templateImageData.width * templateImageData.height);
+                                const visited = new Uint8Array(templateImageData.width * templateImageData.height); 
                                 const region = performFloodFillMoments(ix, iy, templateImageData.width, templateImageData.height, templateImageData.data, visited);
-                                if (region.count > 400) { 
-                                    mappingState.tempSlot = {
-                                        centerX: region.centerX, centerY: region.centerY, 
-                                        width: region.width + 2, height: region.height + 2, rotation: region.rotation, scale: 1 
-                                    };
-                                    mappingState.clickCount = 2; magicWandSuccess = true;
-                                    updateMappingInstructions(); drawCurrentMapping();
-                                }
+                                if (region.count > 400 && photoSlots.length < numPhotosToTake) { photoSlots.push({ centerX: region.centerX, centerY: region.centerY, width: region.width + 2, height: region.height + 2, rotation: region.rotation, scale: 1, shape: mappingState.drawingShape }); mappingState.selectedIndex = photoSlots.length - 1; saveState(); magicWandSuccess = true; }
                             }
                         }
                     }
-                    if (!magicWandSuccess) {
-                        mappingState.startX = coords.originalX; mappingState.startY = coords.originalY;
-                        mappingState.tempX = coords.canvasX; mappingState.tempY = coords.canvasY;
-                        mappingState.clickCount = 1; updateMappingInstructions();
+                    if (!magicWandSuccess && photoSlots.length < numPhotosToTake) { 
+                        mappingState.isCreating = true; 
+                        // Use Canvas Coords for temporary drawing visualization
+                        mappingState.startX = coords.canvasX; mappingState.startY = coords.canvasY; 
+                        mappingState.tempX = coords.canvasX; mappingState.tempY = coords.canvasY; 
                     }
-                } else if (mappingState.clickCount === 1) {
-                    const endX = coords.originalX; const endY = coords.originalY;
-                    const x = Math.min(mappingState.startX, endX); const y = Math.min(mappingState.startY, endY);
-                    const w = Math.abs(mappingState.startX - endX); const h = Math.abs(mappingState.startY - endY);
-                    if (w < 10 || h < 10) { mappingState.clickCount = 0; drawCurrentMapping(); return; }
-                    mappingState.tempSlot = { centerX: x + w / 2, centerY: y + h / 2, width: w + 2, height: h + 2, rotation: 0, scale: 1 };
-                    mappingState.clickCount = 2; updateMappingInstructions(); drawCurrentMapping(); 
                 }
-            }
-
-            function startDrag(coords) {
-                if (mappingState.clickCount !== 2 || !mappingState.tempSlot) return;
-                mappingState.isDragging = true;
-                const scaleX = mappingCanvas.width / templateImage.width; const scaleY = mappingCanvas.height / templateImage.height;
-                const dispCX = mappingState.tempSlot.centerX * scaleX; const dispCY = mappingState.tempSlot.centerY * scaleY;
-                mappingState.dragOffsetX = coords.canvasX - dispCX; mappingState.dragOffsetY = coords.canvasY - dispCY;
-            }
-
-            function handleDrag(coords) {
-                if (!mappingState.isDragging) return;
-                const scaleX = templateImage.width / mappingCanvas.width; const scaleY = templateImage.height / mappingCanvas.height;
-                const newDispCX = coords.canvasX - mappingState.dragOffsetX; const newDispCY = coords.canvasY - mappingState.dragOffsetY;
-                mappingState.tempSlot.centerX = newDispCX * scaleX; mappingState.tempSlot.centerY = newDispCY * scaleY;
-                drawCurrentMapping();
-            }
-
-            confirmAdjustmentBtn.addEventListener('click', () => {
-                if (!mappingState.tempSlot) return;
-                photoSlots.push(mappingState.tempSlot);
-                mappingState.tempSlot = null; mappingState.photoIndex++; mappingState.clickCount = 0;
-                confirmAdjustmentBtn.style.display = 'none'; adjustmentReadout.classList.add('hidden');
-                updateMappingInstructions(); drawCurrentMapping(); updateButtonStates(); saveState();
+                updateButtonStates(); drawCurrentMapping();
             });
+
+            mappingCanvas.addEventListener('mousemove', (e) => {
+                const coords = getCoords(e); 
+                updateMagnifier(coords.canvasX, coords.canvasY);
+                
+                if (mappingState.isDragging && mappingState.selectedIndex !== -1) {
+                    const s = photoSlots[mappingState.selectedIndex];
+                    // Drag logic uses Original Image Coordinates (consistent with storage)
+                    const dX = (coords.originalX - mappingState.dragOffsetX); const dY = (coords.originalY - mappingState.dragOffsetY);
+                    let snapX = 0, snapY = 0;
+                    let isAutoFitted = false;
+                    
+                    if (mappingState.snapEnabled && mappingState.dragType === 'move') { 
+                        // 1. Snap to other slots (Position Only)
+                        photoSlots.forEach((other, idx) => { 
+                            if (idx !== mappingState.selectedIndex) { 
+                                if (Math.abs((mappingState.baseCenterX + dX) - other.centerX) < 20) snapX = other.centerX - (mappingState.baseCenterX + dX); 
+                                if (Math.abs((mappingState.baseCenterY + dY) - other.centerY) < 20) snapY = other.centerY - (mappingState.baseCenterY + dY); 
+                            } 
+                        }); 
+
+                        // 2. Snap to BACKGROUND HOLES (Position + Rotation + Size)
+                        detectedHoles.forEach(hole => {
+                             const dist = Math.sqrt(Math.pow((mappingState.baseCenterX + dX) - hole.centerX, 2) + Math.pow((mappingState.baseCenterY + dY) - hole.centerY, 2));
+                             
+                             // Stronger snap threshold for background holes
+                             if (dist < 25) {
+                                 snapX = hole.centerX - (mappingState.baseCenterX + dX);
+                                 snapY = hole.centerY - (mappingState.baseCenterY + dY);
+                                 
+                                 // --- AUTO FIT LOGIC ---
+                                 // Instantly match the hole's dimensions and rotation
+                                 s.rotation = hole.rotation;
+                                 s.width = hole.width;
+                                 s.height = hole.height;
+                                 s.scale = 1; // Reset scale as width/height are now absolute
+                                 
+                                 isAutoFitted = true;
+                             }
+                        });
+                    }
+
+                    if (mappingState.dragType === 'move') { 
+                        s.centerX = mappingState.baseCenterX + dX + snapX; 
+                        s.centerY = mappingState.baseCenterY + dY + snapY; 
+                    } 
+                    else {
+                        const cos = Math.cos(-s.rotation); const sin = Math.sin(-s.rotation); const rotDX = dX * cos - dY * sin; const rotDY = dX * sin + dY * cos;
+                        let wChange = 0, hChange = 0;
+                        if (mappingState.dragType === 'br') { wChange = rotDX; hChange = rotDY; } else if (mappingState.dragType === 'tl') { wChange = -rotDX; hChange = -rotDY; } else if (mappingState.dragType === 'tr') { wChange = rotDX; hChange = -rotDY; } else if (mappingState.dragType === 'bl') { wChange = -rotDX; hChange = rotDY; }
+                        let newW = (mappingState.baseWidth + wChange * 2); let newH = (mappingState.baseHeight + hChange * 2);
+                        if (mappingState.aspectRatio) { newH = newW / mappingState.aspectRatio; }
+                        if (newW > 10) s.width = newW / s.scale; if (newH > 10) s.height = newH / s.scale;
+                    }
+                    
+                    drawCurrentMapping(); 
+                    if (isAutoFitted) updateButtonStates(); 
+                    updateButtonStates();
+                } else if (mappingState.isCreating) {
+                    // Use Canvas Coordinates for drawing new shapes (visual)
+                    mappingState.tempX = coords.canvasX; mappingState.tempY = coords.canvasY;
+                    if (mappingState.aspectRatio) { const w = mappingState.tempX - mappingState.startX; mappingState.tempY = mappingState.startY + (Math.abs(w) / mappingState.aspectRatio) * Math.sign(mappingState.tempY - mappingState.startY); }
+                    drawCurrentMapping();
+                } else {
+                    const hit = hitTest(coords.canvasX, coords.canvasY);
+                    if (hit) { mappingCanvas.style.cursor = (hit.type === 'move') ? 'move' : ((hit.type === 'tl' || hit.type === 'br') ? 'nwse-resize' : 'nesw-resize'); } else { mappingCanvas.style.cursor = 'crosshair'; }
+                }
+            });
+
+            mappingCanvas.addEventListener('mouseup', (e) => {
+                magnifier.style.display = 'none';
+                if (mappingState.isCreating) {
+                    const coords = getCoords(e);
+                    // Conversion for storage: Canvas Delta -> Image Delta
+                    const scaleX = templateImage.width / mappingCanvas.width; 
+                    const scaleY = templateImage.height / mappingCanvas.height;
+
+                    // Calculate width/height in Canvas Space first
+                    const canvasW = Math.abs(coords.canvasX - mappingState.startX);
+                    const canvasH = Math.abs(coords.canvasY - mappingState.startY);
+
+                    // Convert to Image Space
+                    const w = canvasW * scaleX;
+                    const h = canvasH * scaleY;
+
+                    if (w > 10 && h > 10) {
+                        // Calculate Center in Image Space
+                        // StartX/Y are in Canvas Space. Convert to Image Space first.
+                        const imgStartX = mappingState.startX * scaleX;
+                        const imgStartY = mappingState.startY * scaleY;
+                        
+                        // Correct logic to handle dragging in any direction (TL to BR or BR to TL)
+                        const cx = imgStartX + (coords.originalX - imgStartX) / 2;
+                        const cy = imgStartY + (coords.originalY - imgStartY) / 2;
+
+                        photoSlots.push({ centerX: cx, centerY: cy, width: w, height: h, rotation: 0, scale: 1, shape: mappingState.drawingShape }); mappingState.selectedIndex = photoSlots.length - 1; saveState();
+                    }
+                    mappingState.isCreating = false; updateButtonStates(); drawCurrentMapping();
+                }
+                mappingState.isDragging = false;
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (views.mapping.style.display === 'flex' && mappingState.selectedIndex !== -1) {
+                    const s = photoSlots[mappingState.selectedIndex]; const shift = e.shiftKey ? 10 : 1;
+                    if (e.key === 'ArrowLeft') { s.centerX -= shift; e.preventDefault(); }
+                    if (e.key === 'ArrowRight') { s.centerX += shift; e.preventDefault(); }
+                    if (e.key === 'ArrowUp') { s.centerY -= shift; e.preventDefault(); }
+                    if (e.key === 'ArrowDown') { s.centerY += shift; e.preventDefault(); }
+                    if (e.key === 'Delete' || e.key === 'Backspace') { deleteSlotBtn.click(); }
+                    drawCurrentMapping(); updateButtonStates();
+                }
+                // Global Shortcuts
+                if (e.key === "Escape") { 
+                    // Specific logic: if closePreviewBtn is visible, emulate click
+                    if (closePreviewBtn.style.display !== 'none') {
+                        closePreviewBtn.click();
+                        return;
+                    }
+
+                    if (views.camera.style.display === 'flex') exitCamera();
+                    galleryModal.style.display = 'none';
+                    settingsModal.style.display = 'none';
+                }
+                if (views.camera.style.display === 'flex' && e.code === 'Space') { e.preventDefault(); if (captureBtn.style.display !== 'none') captureBtn.click(); }
+                
+                // Preview Shortcuts
+                if(views.preview.style.display === 'flex') {
+                    if(e.key.toLowerCase() === 'p') printBtn.click();
+                    if(e.key.toLowerCase() === 's') saveBtn.click();
+                    if(e.key.toLowerCase() === 'r' && retakeBtn.style.display !== 'none') retakeBtn.click();
+                }
+                // Gallery Toggle
+                if(e.key.toLowerCase() === 'g') galleryModal.style.display = (galleryModal.style.display === 'none' ? 'flex' : 'none');
+            });
+
+            deleteSlotBtn.addEventListener('click', () => { if (mappingState.selectedIndex !== -1) { photoSlots.splice(mappingState.selectedIndex, 1); mappingState.selectedIndex = -1; drawCurrentMapping(); updateButtonStates(); saveState(); } });
+            confirmAdjustmentBtn.addEventListener('click', () => { mappingState.selectedIndex = -1; drawCurrentMapping(); updateButtonStates(); saveState(); });
 
             // --- Camera Logic ---
-            document.addEventListener('keydown', (e) => {
-                if (views.camera.style.display === 'flex' && e.code === 'Space') { e.preventDefault(); if (captureBtn.style.display !== 'none') captureBtn.click(); }
-                if (e.key === "Escape") {
-                    if (views.mapping.style.display === 'flex' && mappingState.clickCount > 0) {
-                        mappingState.clickCount = 0; mappingState.tempSlot = null; drawCurrentMapping(); updateMappingInstructions();
-                    } else if (views.camera.style.display === 'flex') exitCamera();
-                }
-                if (e.key === "Enter" && views.mapping.style.display === 'flex' && mappingState.clickCount === 2) confirmAdjustmentBtn.click();
-            });
-
             function exitCamera() {
-                if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; countdownEl.style.display = 'none'; }
-                stopCamera();
-                capturedPhotos = []; photoCount = 0;
-                cropFrameOverlay.style.display = 'none';
-                if (useTemplate) { setupMappingView(); showView('mapping'); } else { showView('template'); }
+                // 1. If counting down, just cancel the timer and stay in Camera View (Idle)
+                if (isCountingDown) {
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    countdownEl.style.display = 'none';
+                    countdownEl.classList.remove('animate', 'is-arrow');
+                    cropFrameOverlay.style.display = 'none';
+                    cameraControls.classList.remove('controls-hidden');
+                    captureBtn.style.display = 'block'; // Show capture button again
+                    isCountingDown = false;
+                    updateCameraCropVisual(); // Restore the crop frame if needed
+                    return; // STAY IN VIEW
+                }
+
+                // 2. Otherwise, exit the camera view
+                stopCamera(); 
+                capturedPhotos = []; 
+                photoCount = 0; 
+                cropFrameOverlay.style.display = 'none'; 
+                cameraControls.classList.remove('controls-hidden'); 
+                
+                // Smart Navigation: If Quick Start, go Home. If Custom Map, go Mapping.
+                if (useTemplate && !isQuickStart) { 
+                    setupMappingView(); 
+                    showView('mapping'); 
+                } else { 
+                    showView('template'); 
+                }
+                isCountingDown = false;
             }
             closeCameraBtn.addEventListener('click', exitCamera);
 
             async function startCamera() {
-                // If starting fresh sequence, clear
-                if (retakeIndex === null) { capturedPhotos = []; photoCount = 0; }
-                else { photoCount = retakeIndex; } // Set counter to the retake slot
-
-                updatePhotoCounter();
-                captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
+                if (retakeIndex === null) { capturedPhotos = []; photoCount = 0; } else { photoCount = retakeIndex; } 
+                updatePhotoCounter(); captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
                 if (stream) stopCamera();
+                
                 const selectedDeviceId = cameraSelect.value;
-                const constraints = {
-                    video: {
-                        width: { ideal: 4096 }, height: { ideal: 2160 }, // Force High Res
-                        aspectRatio: TARGET_ASPECT_RATIO,
-                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined
-                    }, audio: false
-                };
+                
+                let idealWidth, idealHeight;
+                if (currentResolution === '4K') { idealWidth = 4096; idealHeight = 2160; }
+                else if (currentResolution === 'FHD') { idealWidth = 1920; idealHeight = 1080; }
+                else { idealWidth = 1280; idealHeight = 720; } // HD default
+
+                const constraints = { video: { width: { ideal: idealWidth }, height: { ideal: idealHeight }, aspectRatio: TARGET_ASPECT_RATIO, deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false };
                 try {
                     stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    videoEl.srcObject = stream; await videoEl.play();
+                    videoEl.srcObject = stream; await videoEl.play(); 
+                    cameraControls.classList.remove('controls-hidden');
+                    
+                    videoTrack = stream.getVideoTracks()[0];
+                    const caps = videoTrack.getCapabilities();
+                    if (caps.zoom) {
+                        zoomContainer.style.display = 'flex'; zoomSlider.min = caps.zoom.min; zoomSlider.max = caps.zoom.max; zoomSlider.step = caps.zoom.step; zoomSlider.value = caps.zoom.min;
+                    } else { zoomContainer.style.display = 'none'; }
+
+                    if (aiBlurEnabled) startVideoProcessing(); // Removed gestureEnabled check
                 } catch (err) { console.error(err); alert("Error accessing camera."); stopCamera(); showView('template'); }
             }
             
-            function stopCamera() {
-                if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
-                videoEl.srcObject = null; videoEl.pause();
-            }
+            function stopCamera() { cancelAnimationFrame(animationFrameId); if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; } videoEl.srcObject = null; videoEl.pause(); cameraControls.classList.remove('controls-hidden'); }
+            
+            zoomSlider.addEventListener('input', () => { if (videoTrack) videoTrack.applyConstraints({ advanced: [{ zoom: zoomSlider.value }] }); });
 
             function updateCameraCropVisual() {
                 if (!useTemplate) { cropFrameOverlay.style.display = 'none'; return; }
                 const currentSlot = retakeIndex !== null ? retakeIndex : photoCount;
                 if (currentSlot >= numPhotosToTake) { cropFrameOverlay.style.display = 'none'; return; }
-
                 let requiredRatio = TARGET_ASPECT_RATIO;
                 if (photoSlots[currentSlot]) requiredRatio = photoSlots[currentSlot].width / photoSlots[currentSlot].height;
-
-                const vw = window.innerWidth; const vh = window.innerHeight;
-                const streamRatio = TARGET_ASPECT_RATIO; 
-                let dispW, dispH;
-                if (vw / vh > streamRatio) { dispH = vh; dispW = vh * streamRatio; } else { dispW = vw; dispH = vw / streamRatio; }
+                
+                // Updated Logic for "cover" mode (Full Screen)
+                // In cover mode, the video fills the screen dimensions (vw, vh).
+                const vw = window.innerWidth; 
+                const vh = window.innerHeight; 
+                
+                // Calculate crop frame dimensions relative to the screen size (which is now the "visible" video size)
                 let frameW, frameH;
-                if (dispW / dispH > requiredRatio) { frameH = dispH; frameW = dispH * requiredRatio; } else { frameW = dispW; frameH = dispW / requiredRatio; }
-                frameW = Math.min(frameW, dispW); frameH = Math.min(frameH, dispH);
-                cropFrameOverlay.style.width = `${frameW}px`; cropFrameOverlay.style.height = `${frameH}px`;
+                if (vw / vh > requiredRatio) {
+                    // Screen is wider than needed -> Fit height
+                    frameH = vh;
+                    frameW = vh * requiredRatio;
+                } else {
+                    // Screen is taller than needed -> Fit width
+                    frameW = vw;
+                    frameH = vw / requiredRatio;
+                }
+                
+                // Ensure frame doesn't exceed screen bounds
+                frameW = Math.min(frameW, vw);
+                frameH = Math.min(frameH, vh);
+
+                cropFrameOverlay.style.width = `${frameW}px`; 
+                cropFrameOverlay.style.height = `${frameH}px`; 
                 cropFrameOverlay.style.display = 'block';
+                if (photoSlots[currentSlot].shape === 'circle') cropFrameOverlay.style.borderRadius = '50%'; else cropFrameOverlay.style.borderRadius = '0';
             }
             
-            captureBtn.addEventListener('click', () => {
-                if (videoEl.paused || videoEl.readyState < 3) return; 
-                captureBtn.style.display = 'none'; startCountdown();
-            });
-
+            captureBtn.addEventListener('click', () => { if (videoEl.paused || videoEl.readyState < 3) return; captureBtn.style.display = 'none'; startCountdown(); });
+            
             function startCountdown() {
-                const selectedTimer = parseInt(timerSelect.value) || 5;
-                let count = selectedTimer; 
+                if (isCountingDown) return; isCountingDown = true;
+                const selectedTimer = parseInt(timerSelect.value) || 5; let count = selectedTimer; 
                 if (countdownInterval) clearInterval(countdownInterval);
-                countdownEl.style.display = ''; countdownEl.textContent = count; countdownEl.classList.remove('is-arrow'); 
-                triggerCountdownAnimation(); playBeep(); updateCameraCropVisual();
-
+                cameraControls.classList.add('controls-hidden');
+                countdownEl.style.display = ''; countdownEl.textContent = count; countdownEl.classList.remove('is-arrow'); triggerCountdownAnimation(); playBeep(); updateCameraCropVisual();
                 countdownInterval = setInterval(() => {
                     count--;
-                    if (count > 1) {
-                        countdownEl.textContent = count; countdownEl.classList.remove('is-arrow');
-                        triggerCountdownAnimation(); playBeep();
-                    } else if (count === 1) {
-                        countdownEl.textContent = '^'; countdownEl.classList.add('is-arrow');
-                        triggerCountdownAnimation(); playBeep();
-                    } else { 
-                        clearInterval(countdownInterval); countdownInterval = null;
-                        countdownEl.textContent = ''; triggerCountdownAnimation();
-                        cropFrameOverlay.style.display = 'none';
-                        
-                        playShutter(); 
-                        if (flashEnabled) {
-                            flashOverlay.classList.add('flash-animation');
-                            setTimeout(() => flashOverlay.classList.remove('flash-animation'), 300);
-                        }
-                        setTimeout(() => {
-                            countdownEl.style.display = 'none'; countdownEl.classList.remove('is-arrow'); takePhoto();
-                        }, 300);
+                    if (count > 1) { countdownEl.textContent = count; countdownEl.classList.remove('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
+                    else if (count === 1) { countdownEl.textContent = '^'; countdownEl.classList.add('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
+                    else { 
+                        clearInterval(countdownInterval); countdownInterval = null; countdownEl.textContent = ''; triggerCountdownAnimation(); cropFrameOverlay.style.display = 'none'; playShutter(); 
+                        setTimeout(() => { countdownEl.style.display = 'none'; countdownEl.classList.remove('is-arrow'); takePhoto(); }, 300);
                     }
                 }, 1000);
             }
-
-            function triggerCountdownAnimation() {
-                countdownEl.classList.remove('animate'); void countdownEl.offsetWidth; countdownEl.classList.add('animate');
-            }
+            function triggerCountdownAnimation() { countdownEl.classList.remove('animate'); void countdownEl.offsetWidth; countdownEl.classList.add('animate'); }
 
             function takePhoto() {
-                const photoPreviewEl = document.getElementById('photo-preview-overlay');
-                const videoW = videoEl.videoWidth; const videoH = videoEl.videoHeight; const videoAspect = videoW / videoH;
+                const photoPreviewEl = document.getElementById('photo-preview-overlay'); 
                 const currentSlotIndex = retakeIndex !== null ? retakeIndex : photoCount;
-                
+                const sourceEl = aiBlurEnabled ? aiCanvas : videoEl;
+                let sourceW, sourceH; if (aiBlurEnabled) { sourceW = aiCanvas.width; sourceH = aiCanvas.height; } else { sourceW = videoEl.videoWidth; sourceH = videoEl.videoHeight; }
+                const videoAspect = sourceW / sourceH;
                 let requiredAspectRatio = TARGET_ASPECT_RATIO;
                 if (useTemplate && photoSlots[currentSlotIndex]) requiredAspectRatio = photoSlots[currentSlotIndex].width / photoSlots[currentSlotIndex].height; 
-                
-                let sX = 0, sY = 0, sW = videoW, sH = videoH;
-                if (videoAspect > requiredAspectRatio) { sW = videoH * requiredAspectRatio; sX = (videoW - sW) / 2; } 
-                else { sH = videoW / requiredAspectRatio; sY = (videoH - sH) / 2; }
-
+                let sX = 0, sY = 0, sW = sourceW, sH = sourceH;
+                if (videoAspect > requiredAspectRatio) { sW = sourceH * requiredAspectRatio; sX = (sourceW - sW) / 2; } else { sH = sourceW / requiredAspectRatio; sY = (sourceH - sH) / 2; }
                 captureCanvas.width = sW; captureCanvas.height = sH;
-                captureCtx.save();
-                captureCtx.filter = filterSelect.value;
+                captureCtx.save(); captureCtx.filter = filterSelect.value;
                 if (mirrorToggle.checked) { captureCtx.translate(sW, 0); captureCtx.scale(-1, 1); }
-                captureCtx.drawImage(videoEl, sX, sY, sW, sH, 0, 0, sW, sH);
-                captureCtx.restore();
-
+                captureCtx.drawImage(sourceEl, sX, sY, sW, sH, 0, 0, sW, sH); captureCtx.restore();
                 const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
                 
-                if (retakeIndex !== null) {
-                    capturedPhotos[retakeIndex] = currentPhotoDataUrl;
-                } else {
-                    capturedPhotos.push(currentPhotoDataUrl);
-                    photoCount++;
-                }
-
-                updatePhotoCounter();
+                if (retakeIndex !== null) { capturedPhotos[retakeIndex] = currentPhotoDataUrl; } else { capturedPhotos.push(currentPhotoDataUrl); photoCount++; }
+                updatePhotoCounter(); 
+                
                 photoPreviewEl.src = currentPhotoDataUrl; photoPreviewEl.style.filter = filterSelect.value;
-                const randomTilt = Math.random() * 6 - 3; 
-                photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`;
-                photoPreviewEl.classList.add('show-preview');
-
-                setTimeout(() => {
-                    photoPreviewEl.classList.remove('show-preview'); photoPreviewEl.style.transform = ''; photoPreviewEl.src = '';
-                    
-                    // Logic split for Retake vs Sequence
-                    if (retakeIndex !== null) {
-                        // Finished retake
-                        retakeIndex = null; stopCamera(); createFinalImage();
-                    } else {
-                        if (photoCount < numPhotosToTake) { startCountdown(); } 
-                        else { stopCamera(); createFinalImage(); }
-                    }
+                const randomTilt = Math.random() * 6 - 3; photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`; photoPreviewEl.classList.add('show-preview');
+                
+                setTimeout(() => { 
+                    photoPreviewEl.classList.remove('show-preview'); photoPreviewEl.style.transform = ''; photoPreviewEl.src = ''; isCountingDown = false;
+                    if (retakeIndex !== null) { retakeIndex = null; stopCamera(); createFinalImage(); } 
+                    else { if (photoCount < numPhotosToTake) { startCountdown(); } else { stopCamera(); createFinalImage(); } } 
                 }, 2000);
             }
 
-            function updatePhotoCounter() {
-                if (retakeIndex !== null) photoCounterEl.textContent = `Retaking Photo ${retakeIndex + 1}`;
-                else photoCounterEl.textContent = `${photoCount} / ${numPhotosToTake}`; 
-            }
+            function updatePhotoCounter() { if (retakeIndex !== null) photoCounterEl.textContent = `Retaking Photo ${retakeIndex + 1}`; else photoCounterEl.textContent = `${photoCount} / ${numPhotosToTake}`; }
 
-            // --- 3. Final Image & Editing ---
             function createFinalImage() {
-                showView('preview');
-                const photoImages = [];
-                let imagesLoaded = 0;
+                showView('preview'); const photoImages = []; let imagesLoaded = 0;
+                capturedPhotos.forEach((dataURL, index) => { const img = new Image(); img.onload = () => { imagesLoaded++; if (imagesLoaded === capturedPhotos.length) { if (useTemplate) drawWithTemplate(photoImages); else drawWithoutTemplate(photoImages); } }; img.src = dataURL; photoImages[index] = img; });
                 
-                capturedPhotos.forEach((dataURL, index) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        imagesLoaded++;
-                        if (imagesLoaded === capturedPhotos.length) { 
-                            if (useTemplate) drawWithTemplate(photoImages); else drawWithoutTemplate(photoImages);
-                        }
-                    };
-                    img.src = dataURL; photoImages[index] = img;
-                });
-                remapBtn.style.display = useTemplate ? 'block' : 'none';
+                // Normal flow logic
+                remapBtn.style.display = useTemplate ? 'block' : 'none'; 
+                cameraControls.classList.remove('controls-hidden');
+                closePreviewBtn.style.display = 'none'; 
+                retakeBtn.style.display = 'inline-flex'; 
             }
-
-            function drawWithoutTemplate(photoImages) {
-                const photoW = photoImages[0].width; const photoH = photoImages[0].height;
+            
+            function finalizeDraw() {
+                // Use JPEG 0.7 for storage to allow multiple images in limited SessionStorage
+                // PNGs are too large (~3MB+ for 1080p), while JPEGs are ~300KB.
+                saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.70));
+                
+                // Normal flow logic
+                remapBtn.style.display = useTemplate ? 'block' : 'none'; 
+                cameraControls.classList.remove('controls-hidden');
+                closePreviewBtn.style.display = 'none'; 
+                retakeBtn.style.display = 'inline-flex'; 
+            }
+            
+            function drawWithoutTemplate(photoImages) { 
+                const photoW = photoImages[0].width; const photoH = photoImages[0].height; 
                 mergeCanvas.width = photoW; mergeCanvas.height = photoH * numPhotosToTake; 
-                mergeCtx.clearRect(0, 0, mergeCanvas.width, mergeCanvas.height);
-                photoImages.forEach((img, index) => { mergeCtx.drawImage(img, 0, photoH * index, photoW, photoH); });
+                mergeCtx.clearRect(0, 0, mergeCanvas.width, mergeCanvas.height); 
+                photoImages.forEach((img, index) => { mergeCtx.drawImage(img, 0, photoH * index, photoW, photoH); }); 
+                finalizeDraw();
             }
-
             function drawWithTemplate(photoImages) {
-                const templateW = templateImage.width; const templateH = templateImage.height;
-                mergeCanvas.width = templateW; mergeCanvas.height = templateH;
-                mergeCtx.clearRect(0, 0, templateW, templateH);
-                
-                photoImages.forEach((img, index) => {
+                const templateW = templateImage.width; const templateH = templateImage.height; mergeCanvas.width = templateW; mergeCanvas.height = templateH; mergeCtx.clearRect(0, 0, templateW, templateH);
+                photoImages.forEach((img, index) => { 
                     if (!photoSlots[index]) return; 
-                    const coords = photoSlots[index];
-                    mergeCtx.save(); 
-                    mergeCtx.translate(coords.centerX, coords.centerY); mergeCtx.rotate(coords.rotation);
-                    const scaledWidth = coords.width * coords.scale; const scaledHeight = coords.height * coords.scale;
-                    mergeCtx.beginPath(); mergeCtx.rect(-scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight); mergeCtx.clip();
-                    
-                    const targetW = scaledWidth; const targetH = scaledHeight; const targetAspect = targetW / targetH;
-                    const sourceW = img.width; const sourceH = img.height; const sourceAspect = sourceW / sourceH; 
-                    let sX = 0, sY = 0, sW = sourceW, sH = sourceH;
-                    if (sourceAspect > targetAspect) { sH = sourceH; sW = sourceH * targetAspect; sX = (sourceW - sW) / 2; } 
-                    else { sW = sourceW; sH = sourceW / targetAspect; sY = (sourceH - sH) / 2; }
-                    mergeCtx.drawImage(img, sX, sY, sW, sH, -targetW / 2, -targetH / 2, targetW, targetH);
-                    mergeCtx.restore(); 
+                    const coords = photoSlots[index]; mergeCtx.save(); mergeCtx.translate(coords.centerX, coords.centerY); mergeCtx.rotate(coords.rotation); 
+                    const scaledWidth = coords.width * coords.scale; const scaledHeight = coords.height * coords.scale; 
+                    mergeCtx.beginPath(); 
+                    if (coords.shape === 'circle') { mergeCtx.ellipse(0, 0, scaledWidth/2, scaledHeight/2, 0, 0, 2*Math.PI); } else { mergeCtx.rect(-scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight); }
+                    mergeCtx.clip(); 
+                    const targetW = scaledWidth; const targetH = scaledHeight; const targetAspect = targetW / targetH; const sourceW = img.width; const sourceH = img.height; const sourceAspect = sourceW / sourceH; 
+                    let sX = 0, sY = 0, sW = sourceW, sH = sourceH; 
+                    if (sourceAspect > targetAspect) { sH = sourceH; sW = sourceH * targetAspect; sX = (sourceW - sW) / 2; } else { sW = sourceW; sH = sourceW / targetAspect; sY = (sourceH - sH) / 2; } 
+                    mergeCtx.drawImage(img, sX, sY, sW, sH, -targetW / 2, -targetH / 2, targetW, targetH); mergeCtx.restore(); 
                 });
                 mergeCtx.drawImage(templateImage, 0, 0, templateW, templateH);
+                finalizeDraw();
             }
 
-            // --- Retake Detection ---
-            mergeCanvas.addEventListener('click', (e) => {
-                if (!useTemplate) return;
-                const rect = mergeCanvas.getBoundingClientRect();
-                const scaleX = mergeCanvas.width / rect.width;
-                const scaleY = mergeCanvas.height / rect.height;
-                const x = (e.clientX - rect.left) * scaleX;
-                const y = (e.clientY - rect.top) * scaleY;
+            function getPreviewCursorState(e) {
+                const rect = mergeCanvas.getBoundingClientRect(); const scaleX = mergeCanvas.width / rect.width; const scaleY = mergeCanvas.height / rect.height; const x = (e.clientX - rect.left) * scaleX; const y = (e.clientY - rect.top) * scaleY; let hitIndex = -1;
+                if (useTemplate) { for (let i = 0; i < photoSlots.length; i++) { const s = photoSlots[i]; const slotScale = s.scale || 1; const halfW = (s.width * slotScale) / 2; const halfH = (s.height * slotScale) / 2; const dx = x - s.centerX; const dy = y - s.centerY; const rx = dx * Math.cos(-s.rotation) - dy * Math.sin(-s.rotation); const ry = dx * Math.sin(-s.rotation) + dy * Math.cos(-s.rotation); if (Math.abs(rx) < halfW && Math.abs(ry) < halfH) { hitIndex = i; break; } } } 
+                else { const slotHeight = mergeCanvas.height / numPhotosToTake; const clickedIndex = Math.floor(y / slotHeight); if (clickedIndex >= 0 && clickedIndex < numPhotosToTake) { hitIndex = clickedIndex; } }
+                return hitIndex;
+            }
+            mergeCanvas.addEventListener('mousemove', (e) => { const hit = getPreviewCursorState(e); mergeCanvas.style.cursor = (hit !== -1) ? 'pointer' : 'default'; });
+            mergeCanvas.addEventListener('click', (e) => { const hitIndex = getPreviewCursorState(e); if (hitIndex !== -1) { pendingRetakeIndex = hitIndex; confirmMsg.textContent = `Retake Photo ${hitIndex + 1}?`; confirmModal.style.display = 'flex'; } });
+            confirmYes.onclick = () => { confirmModal.style.display = 'none'; if (pendingRetakeIndex !== null) { retakeIndex = pendingRetakeIndex; showView('camera'); startCamera(); } };
+            confirmNo.onclick = () => { confirmModal.style.display = 'none'; };
 
-                for (let i = 0; i < photoSlots.length; i++) {
-                    const s = photoSlots[i];
-                    if (x > s.centerX - s.width/2 && x < s.centerX + s.width/2 &&
-                        y > s.centerY - s.height/2 && y < s.centerY + s.height/2) {
-                        if (confirm(`Retake Photo ${i+1}?`)) {
-                            retakeIndex = i;
-                            showView('camera');
-                            startCamera();
-                        }
-                        return;
-                    }
-                }
-            });
-
-            // --- Save & Share ---
             retakeBtn.addEventListener('click', () => { retakeIndex = null; showView('camera'); startCamera(); });
             remapBtn.addEventListener('click', () => { if (useTemplate) { showView('mapping'); setupMappingView(); } });
+            saveBtn.addEventListener('click', () => { const link = document.createElement('a'); link.download = 'photobooth.png'; link.href = mergeCanvas.toDataURL('image/png'); link.click(); });
             
-            saveBtn.addEventListener('click', () => {
-                const link = document.createElement('a');
-                link.download = 'photobooth.png';
-                link.href = mergeCanvas.toDataURL('image/png');
-                link.click();
-            });
-
-            shareBtn.addEventListener('click', () => {
-                mergeCanvas.toBlob(blob => {
-                    const file = new File([blob], "photobooth.png", { type: "image/png" });
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                        navigator.share({
-                            files: [file],
-                            title: 'My PhotoBooth Strip',
-                            text: 'Check out my photo strip!'
-                        }).catch(console.error);
-                    } else {
-                        alert("Web Share not supported on this browser/device. Please use Download.");
-                    }
-                });
-            });
-
+            // NEW: Updated Close Logic to handle gallery return
+            closePreviewBtn.addEventListener('click', () => { 
+                showView('template'); // Go back to home base
+                if (returnToGallery) {
+                    galleryModal.style.display = 'flex'; // Re-open gallery
+                    returnToGallery = false; // Reset flag
+                }
+            }); 
+            
             changeTemplateBtn.addEventListener('click', () => { showView('template'); });
-            undoBtn.addEventListener('click', () => {
-                if (photoSlots.length > 0) {
-                    cancelCurrentSelection(); undoStack.push(photoSlots.pop());
-                    mappingState.photoIndex--; updateMappingInstructions(); drawCurrentMapping(); updateButtonStates();
+            undoBtn.addEventListener('click', () => { if (photoSlots.length > 0) { const popped = photoSlots.pop(); undoStack.push(popped); mappingState.selectedIndex = -1; updateMappingInstructions(); drawCurrentMapping(); updateButtonStates(); } });
+            resetMappingBtn.addEventListener('click', () => { photoSlots = []; setupMappingView(); });
+            startMappedBtn.addEventListener('click', () => { if (photoSlots.length === numPhotosToTake) { saveState(); showView('camera'); startCamera(); } });
+            
+            // Print Logic (Direct Print via Iframe)
+            printBtn.addEventListener('click', () => {
+                // Remove old frame if exists
+                const oldFrame = document.getElementById('print-iframe');
+                if (oldFrame) document.body.removeChild(oldFrame);
+
+                // Create hidden iframe
+                const iframe = document.createElement('iframe');
+                iframe.id = 'print-iframe';
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = '0';
+                document.body.appendChild(iframe);
+
+                const isStrip = mergeCanvas.width / mergeCanvas.height < 0.5; 
+                let imgData;
+
+                if (isStrip) {
+                    // Logic for 2x6 strips on 4x6 paper
+                    const pCanvas = document.createElement('canvas');
+                    pCanvas.width = mergeCanvas.width * 2 + 100; // Add gap
+                    pCanvas.height = mergeCanvas.height;
+                    const pCtx = pCanvas.getContext('2d');
+                    pCtx.fillStyle = 'white'; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
+                    pCtx.drawImage(mergeCanvas, 0, 0);
+                    pCtx.drawImage(mergeCanvas, mergeCanvas.width + 100, 0);
+                    imgData = pCanvas.toDataURL();
+                } else {
+                    imgData = mergeCanvas.toDataURL();
                 }
-            });
-            redoBtn.addEventListener('click', () => {
-                if (undoStack.length > 0) {
-                    cancelCurrentSelection(); photoSlots.push(undoStack.pop());
-                    mappingState.photoIndex++; updateMappingInstructions(); drawCurrentMapping(); updateButtonStates();
-                }
-            });
-            resetMappingBtn.addEventListener('click', setupMappingView);
-            startMappedBtn.addEventListener('click', () => {
-                if (photoSlots.length === numPhotosToTake) { saveState(); showView('camera'); startCamera(); }
+
+                const doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Print Photo</title>
+                        <style>
+                            @page { margin: 0; size: auto; }
+                            body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+                            img { max-width: 100%; max-height: 100%; object-fit: contain; }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${imgData}" onload="setTimeout(() => { window.print(); }, 500);">
+                    </body>
+                    </html>
+                `);
+                doc.close();
             });
 
-            showView('template');
-            enumerateCameras(); 
-            
-            window.addEventListener('resize', () => {
-                if (views.mapping.style.display === 'flex' && templateImage.src) setupMappingView(); 
-                if (views.camera.style.display === 'flex') updateCameraCropVisual();
-            });
+            showView('template'); enumerateCameras(); 
+            window.addEventListener('resize', () => { if (views.mapping.style.display === 'flex' && templateImage.src) setupMappingView(); if (views.camera.style.display === 'flex') updateCameraCropVisual(); });
         });
     </script>
 </body>
