@@ -252,7 +252,10 @@
             0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.2); } 50% { opacity: 1; transform: scale(1.0); } 100% { opacity: 0; transform: scale(1.5); }
         }
         @keyframes arrow-lift {
-            0% { opacity: 0; transform: translateY(20px) scale(0.8); } 20% { opacity: 1; transform: translateY(0) scale(1.2); } 80% { opacity: 1; transform: translateY(-20px) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(0.5); }
+            0% { opacity: 0; transform: translateY(50px) scale(0.8); } 
+            20% { opacity: 1; transform: translateY(0) scale(1.2); } 
+            80% { opacity: 1; transform: translateY(-50px) scale(1); } 
+            100% { opacity: 0; transform: translateY(-150px) scale(0.5); }
         }
 
         #capture-btn { 
@@ -271,6 +274,39 @@
         
         #photo-preview-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); max-width: 90vw; max-height: 90vh; display: none; object-fit: contain; z-index: 30; border-radius: 12px; opacity: 0; transition: transform 0.2s, opacity 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         #photo-preview-overlay.show-preview { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+
+        /* NEW: Captured Thumbnails Stack */
+        #captured-thumbnails {
+            position: absolute;
+            top: 130px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 24;
+            max-height: 55vh;
+            overflow-y: auto;
+            pointer-events: none; /* Let clicks pass through */
+        }
+        .cap-thumb {
+            width: 90px;
+            height: 65px;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.7);
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            background: #000;
+            animation: thumb-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .cap-thumb.active-retake {
+            border-color: var(--brand-color);
+            transform: scale(1.1);
+            box-shadow: 0 0 10px var(--brand-color);
+        }
+        @keyframes thumb-pop {
+            0% { transform: translateX(50px) scale(0.5); opacity: 0; }
+            100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
 
         /* Zoom Slider */
         #zoom-container { display: none; align-items: center; gap: 5px; margin-left: 5px; padding-left: 5px; border-left: 1px solid rgba(255,255,255,0.3); }
@@ -337,15 +373,7 @@
                 </select>
             </div>
             
-            <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
-                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Performance / Resolution</label>
-                <select id="resolution-select" style="width:100%;">
-                    <option value="HD" selected>HD (Smooth - 720p)</option>
-                    <option value="FHD">Full HD (Crisp - 1080p)</option>
-                    <option value="4K">Ultra HD (High Res - 4K)</option>
-                </select>
-                <div style="font-size:0.8em; color:#666; margin-top:5px;">*Use HD for smoother AI effects</div>
-            </div>
+            <!-- Removed Performance / Resolution Section -->
 
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
                 <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Manual Photo Count</label>
@@ -562,6 +590,10 @@
             <div id="crop-frame-overlay"></div>
             <img id="photo-preview-overlay" /> 
             <div id="photo-counter-overlay">0 / 4</div>
+            
+            <!-- NEW: Container for Thumbnails -->
+            <div id="captured-thumbnails"></div>
+
             <div id="countdown-overlay"></div>
         </div>
         <div id="camera-bottom-bar">
@@ -616,6 +648,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- VERSION CONTROL ---
+            // Bump this version number whenever you update logic to force a reset of localStorage
+            const APP_VERSION = '1.2'; 
+
             // --- AUDIO SETUP ---
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             let audioCtx = new AudioContext();
@@ -673,7 +709,7 @@
             const settingsModal = document.getElementById('settings-modal');
             const settingsBtn = document.getElementById('settings-btn');
             const closeSettingsBtn = document.getElementById('close-settings-btn');
-            const resolutionSelect = document.getElementById('resolution-select');
+            // Removed resolutionSelect
             
             const lgModal = document.getElementById('layout-generator-modal');
             const openLgBtn = document.getElementById('open-layout-gen-btn');
@@ -754,6 +790,9 @@
             const galleryCloseBtnFooter = document.getElementById('gallery-close-btn-footer');
             const galleryList = document.getElementById('gallery-list');
 
+            // NEW: Thumbnail Container
+            const capturedThumbnailsEl = document.getElementById('captured-thumbnails');
+
             const captureCanvas = document.getElementById('capture-canvas');
             const captureCtx = captureCanvas.getContext('2d');
 
@@ -783,7 +822,7 @@
             let isCountingDown = false;
             let isQuickStart = false; // New flag for navigation history
             let gestureDebounce = 0;
-            let currentResolution = 'HD'; // HD or 4K
+            // Removed currentResolution variable
             
             let photoSlots = []; 
             let detectedHoles = []; // Store background snap targets
@@ -799,9 +838,24 @@
             // --- Persistence ---
             function loadState() {
                 try {
+                    // 1. Check Version Compatibility
+                    const savedVersion = localStorage.getItem('pb_version');
+                    
+                    if (savedVersion !== APP_VERSION) {
+                        console.log("New version detected. Clearing old session data.");
+                        // Clear specific keys to avoid wiping other unrelated site data
+                        localStorage.removeItem('pb_template');
+                        localStorage.removeItem('pb_slots');
+                        localStorage.removeItem('pb_count');
+                        localStorage.setItem('pb_version', APP_VERSION); // Update to new version
+                        renderGallery(); // Gallery is session-based anyway, but safe to keep
+                        return; // Stop loading old state
+                    }
+
                     const savedTemplate = localStorage.getItem('pb_template');
                     const savedSlots = localStorage.getItem('pb_slots');
                     const savedCount = localStorage.getItem('pb_count');
+                    
                     if (savedTemplate && savedSlots) {
                         const img = new Image();
                         img.onload = () => {
@@ -829,6 +883,7 @@
                         localStorage.setItem('pb_template', templateImage.src);
                         localStorage.setItem('pb_slots', JSON.stringify(photoSlots));
                         localStorage.setItem('pb_count', numPhotosToTake);
+                        localStorage.setItem('pb_version', APP_VERSION); // Save current version
                     }
                 } catch (e) { console.log("Storage save error", e); }
             }
@@ -961,7 +1016,7 @@
             settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
-                currentResolution = resolutionSelect.value;
+                // Removed currentResolution update
             });
             
             galleryBtn.addEventListener('click', () => galleryModal.style.display = 'flex');
@@ -1707,15 +1762,18 @@
 
             async function startCamera() {
                 if (retakeIndex === null) { capturedPhotos = []; photoCount = 0; } else { photoCount = retakeIndex; } 
-                updatePhotoCounter(); captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
+                
+                updatePhotoCounter(); 
+                renderCapturedThumbnails(); // Initialize/Clear thumbnails
+                
+                captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
                 if (stream) stopCamera();
                 
                 const selectedDeviceId = cameraSelect.value;
                 
-                let idealWidth, idealHeight;
-                if (currentResolution === '4K') { idealWidth = 4096; idealHeight = 2160; }
-                else if (currentResolution === 'FHD') { idealWidth = 1920; idealHeight = 1080; }
-                else { idealWidth = 1280; idealHeight = 720; } // HD default
+                // Fixed to HD (720p) default for performance
+                const idealWidth = 1280; 
+                const idealHeight = 720; 
 
                 const constraints = { video: { width: { ideal: idealWidth }, height: { ideal: idealHeight }, aspectRatio: TARGET_ASPECT_RATIO, deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false };
                 try {
@@ -1782,7 +1840,7 @@
                 countdownInterval = setInterval(() => {
                     count--;
                     if (count > 1) { countdownEl.textContent = count; countdownEl.classList.remove('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
-                    else if (count === 1) { countdownEl.textContent = '^'; countdownEl.classList.add('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
+                    else if (count === 1) { countdownEl.textContent = '👆'; countdownEl.classList.add('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
                     else { 
                         clearInterval(countdownInterval); countdownInterval = null; countdownEl.textContent = ''; triggerCountdownAnimation(); cropFrameOverlay.style.display = 'none'; playShutter(); 
                         setTimeout(() => { countdownEl.style.display = 'none'; countdownEl.classList.remove('is-arrow'); takePhoto(); }, 300);
@@ -1808,7 +1866,9 @@
                 const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
                 
                 if (retakeIndex !== null) { capturedPhotos[retakeIndex] = currentPhotoDataUrl; } else { capturedPhotos.push(currentPhotoDataUrl); photoCount++; }
+                
                 updatePhotoCounter(); 
+                renderCapturedThumbnails(); // Update thumbnails after capture
                 
                 photoPreviewEl.src = currentPhotoDataUrl; photoPreviewEl.style.filter = filterSelect.value;
                 const randomTilt = Math.random() * 6 - 3; photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`; photoPreviewEl.classList.add('show-preview');
@@ -1818,6 +1878,23 @@
                     if (retakeIndex !== null) { retakeIndex = null; stopCamera(); createFinalImage(); } 
                     else { if (photoCount < numPhotosToTake) { startCountdown(); } else { stopCamera(); createFinalImage(); } } 
                 }, 2000);
+            }
+
+            // NEW: Function to render the thumbnail stack
+            function renderCapturedThumbnails() {
+                capturedThumbnailsEl.innerHTML = '';
+                capturedPhotos.forEach((src, index) => {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.className = 'cap-thumb';
+                    
+                    // If we are retaking, highlight the photo being replaced or just taken
+                    if (retakeIndex !== null && index === retakeIndex) {
+                        img.classList.add('active-retake');
+                    }
+                    
+                    capturedThumbnailsEl.appendChild(img);
+                });
             }
 
             function updatePhotoCounter() { if (retakeIndex !== null) photoCounterEl.textContent = `Retaking Photo ${retakeIndex + 1}`; else photoCounterEl.textContent = `${photoCount} / ${numPhotosToTake}`; }
