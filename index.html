@@ -36,6 +36,107 @@
             display: none; box-sizing: border-box; align-items: center; justify-content: center;
         }
 
+        /* --- LOGIN VIEW --- */
+        #login-view {
+            flex-direction: column;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            z-index: 999;
+        }
+
+        .login-container {
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 350px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            /* MOVED animation to .initial-slide class to prevent replay bug */
+        }
+        
+        /* NEW: Dedicated Entry Animation Class */
+        .login-container.initial-slide {
+            animation: slide-up 0.6s ease-out;
+        }
+        
+        /* NEW: Shake Animation for Error */
+        .login-container.error-shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+            border-color: #ff4d4d;
+        }
+
+        @keyframes slide-up {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .login-logo svg { width: 60px; height: 60px; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(74, 144, 226, 0.5)); }
+        
+        .login-title {
+            font-size: 1.8em; font-weight: 700; margin: 0 0 25px 0;
+            background: var(--brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 15px; }
+        
+        #login-password {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #444;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 10px;
+            font-size: 1em;
+            text-align: center;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+        #login-password:focus { outline: none; border-color: var(--brand-color); box-shadow: 0 0 10px rgba(74, 144, 226, 0.2); }
+
+        #login-btn {
+            background: var(--brand-gradient);
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        #login-btn:active { transform: scale(0.95); }
+
+        .login-error { color: #ff4d4d; font-size: 0.85em; margin-top: 10px; height: 20px; opacity: 0; transition: opacity 0.3s; }
+
+        /* Welcome Animation Overlay */
+        #welcome-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            display: none;
+            align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .welcome-content { text-align: center; }
+        #welcome-icon { font-size: 4em; margin-bottom: 20px; animation: wave 1.5s infinite; display: inline-block; }
+        #welcome-msg { 
+            font-size: 2em; font-weight: 300; color: white; 
+            opacity: 0; transform: translateY(20px);
+            animation: fade-up-text 0.8s forwards 0.2s;
+        }
+        .highlight-name { font-weight: 700; color: #4a90e2; }
+
+        @keyframes wave { 0% { transform: rotate(0deg); } 10% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 30% { transform: rotate(14deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } 60% { transform: rotate(0deg); } 100% { transform: rotate(0deg); } }
+        @keyframes fade-up-text { to { opacity: 1; transform: translateY(0); } }
+
+
         /* --- HOME SCREEN UI --- */
         #template-view {
             flex-direction: column; padding: 20px; overflow-y: auto;
@@ -377,20 +478,51 @@
 </head>
 <body>
 
+    <!-- NEW: Login View -->
+    <div id="login-view" class="view">
+        <!-- Added 'initial-slide' class here -->
+        <div class="login-container initial-slide" id="login-card">
+            <div class="login-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#4a90e2;stop-opacity:1" /><stop offset="100%" style="stop-color:#9b59b6;stop-opacity:1" /></linearGradient></defs>
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle>
+                </svg>
+            </div>
+            <h1 class="login-title">PhotoBooth Pro</h1>
+            <div class="input-group">
+                <input type="password" id="login-password" placeholder="Enter Passcode" />
+                <button id="login-btn" class="btn-primary">Unlock</button>
+            </div>
+            <div id="login-error" class="login-error">Incorrect Passcode</div>
+        </div>
+        <!-- MOVED: Welcome Overlay removed from here -->
+    </div>
+
+    <!-- MOVED: Welcome Overlay is now a direct child of body (Global Overlay) -->
+    <div id="welcome-overlay">
+        <div class="welcome-content">
+            <div id="welcome-icon">👋</div>
+            <h1 id="welcome-msg"></h1>
+        </div>
+    </div>
+
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">Settings</div>
             
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
+                <!-- NEW: User Info -->
+                <div id="user-info-display" style="font-weight:bold; color:var(--brand-color); margin-bottom: 10px;">
+                    Logged in as: Guest
+                </div>
+
                 <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Camera Source</label>
                 <select id="camera-select" style="width:100%;">
                     <option value="">Loading cameras...</option>
                 </select>
             </div>
             
-            <!-- Removed Performance / Resolution Section -->
-
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
                 <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Manual Photo Count</label>
                 <select id="photo-count-select" style="width:100%;">
@@ -403,6 +535,9 @@
                     <option value="8">8 Photos</option>
                 </select>
             </div>
+
+            <!-- NEW: Logout Button -->
+            <button id="logout-btn" class="btn" style="background-color:#dc3545; width:100%; margin-top:10px;">Logout</button>
 
             <div class="modal-footer">
                 <button id="close-settings-btn" class="btn" style="background-color:#4a90e2; width:100%;">Done</button>
@@ -707,6 +842,7 @@
 
             // --- DOM Elements ---
             const views = {
+                login: document.getElementById('login-view'),
                 template: document.getElementById('template-view'),
                 mapping: document.getElementById('mapping-view'), 
                 camera: document.getElementById('camera-view'),
@@ -723,11 +859,20 @@
             const qsStripBtn = document.getElementById('qs-strip-btn');
             const qsGridBtn = document.getElementById('qs-grid-btn');
 
+            // Login Elements
+            const loginCard = document.getElementById('login-card');
+            const loginPassInput = document.getElementById('login-password');
+            const loginBtn = document.getElementById('login-btn');
+            const loginError = document.getElementById('login-error');
+            const welcomeOverlay = document.getElementById('welcome-overlay');
+            const welcomeMsg = document.getElementById('welcome-msg');
+            const logoutBtn = document.getElementById('logout-btn');
+            const userInfoDisplay = document.getElementById('user-info-display');
+
             // Settings & Layout Gen
             const settingsModal = document.getElementById('settings-modal');
             const settingsBtn = document.getElementById('settings-btn');
             const closeSettingsBtn = document.getElementById('close-settings-btn');
-            // Removed resolutionSelect
             
             const lgModal = document.getElementById('layout-generator-modal');
             const openLgBtn = document.getElementById('open-layout-gen-btn');
@@ -840,7 +985,6 @@
             let isCountingDown = false;
             let isQuickStart = false; // New flag for navigation history
             let gestureDebounce = 0;
-            // Removed currentResolution variable
             
             let photoSlots = []; 
             let detectedHoles = []; // Store background snap targets
@@ -1040,6 +1184,95 @@
                     aiCanvas.classList.remove('mirrored'); 
                 }
             });
+
+            // --- LOGIN LOGIC ---
+            function getGreeting() {
+                const h = new Date().getHours();
+                if (h < 12) return "Good Morning";
+                if (h < 18) return "Good Afternoon";
+                return "Good Evening";
+            }
+
+            function handleLogin() {
+                const pass = loginPassInput.value.trim();
+                // "Discreted" (Obfuscated) Passcodes using Base64
+                // Prevents plain text reading of passwords in source code
+                // jrnest.2025 -> anJuZXN0LjIwMjU=
+                // 09208894305247 -> MDkyMDg4OTQzMDUyNDc=
+                
+                const encodedPass = btoa(pass); // Encode user input to match stored values
+                let user = "";
+
+                if (encodedPass === 'anJuZXN0LjIwMjU=') {
+                    user = "Sir Jrnest";
+                } else if (encodedPass === 'MDkyMDg4OTQzMDUyNDc=') {
+                    user = "Sir Dave";
+                } else {
+                    // Error Animation
+                    loginCard.classList.add('error-shake');
+                    loginError.style.opacity = 1;
+                    setTimeout(() => {
+                        loginCard.classList.remove('error-shake');
+                        loginError.style.opacity = 0;
+                    }, 2000);
+                    return;
+                }
+
+                // Save User
+                localStorage.setItem('pb_auth_user', user);
+                updateUserDisplay();
+
+                // Successful Login
+                loginPassInput.value = "";
+                welcomeMsg.innerHTML = `${getGreeting()}, <br><span class="highlight-name">${user}</span>`;
+                welcomeOverlay.style.display = "flex";
+                
+                // Animation sequence
+                setTimeout(() => {
+                    // 1. Switch to the APP view BEHIND the opaque overlay
+                    showView('template'); 
+                    
+                    // 2. Fade out the overlay to reveal the app
+                    // (Instead of fading out to reveal the login form again)
+                    requestAnimationFrame(() => {
+                        welcomeOverlay.style.transition = "opacity 0.5s ease-in-out";
+                        welcomeOverlay.style.opacity = 0;
+                    });
+
+                    setTimeout(() => {
+                        welcomeOverlay.style.display = "none";
+                        welcomeOverlay.style.opacity = 1; // Reset for next time
+                        welcomeOverlay.style.transition = ""; // Reset transition
+                    }, 500);
+                }, 2500); // Show welcome message for 2.5 seconds
+            }
+
+            function updateUserDisplay() {
+                const user = localStorage.getItem('pb_auth_user') || "Guest";
+                userInfoDisplay.textContent = `Logged in as: ${user}`;
+            }
+
+            function checkSession() {
+                const user = localStorage.getItem('pb_auth_user');
+                if (user) {
+                    updateUserDisplay();
+                    showView('template'); // Skip login
+                } else {
+                    showView('login');
+                }
+            }
+
+            loginBtn.addEventListener('click', handleLogin);
+            loginPassInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('pb_auth_user');
+                settingsModal.style.display = 'none';
+                showView('login');
+            });
+
 
             // --- Modal Handlers ---
             settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
@@ -2076,8 +2309,17 @@
                 doc.close();
             });
 
-            showView('template'); enumerateCameras(); 
+            checkSession(); // Check login status immediately
+            enumerateCameras(); 
             window.addEventListener('resize', () => { if (views.mapping.style.display === 'flex' && templateImage.src) setupMappingView(); if (views.camera.style.display === 'flex') updateCameraCropVisual(); });
+            
+            // FIX: Remove the entry animation class once it finishes.
+            // This prevents the "slide up" animation from re-playing every time 
+            // the error shake class is removed.
+            setTimeout(() => {
+                const lc = document.getElementById('login-card');
+                if(lc) lc.classList.remove('initial-slide');
+            }, 800); // Wait slightly longer than the 0.6s animation
         });
     </script>
 </body>
