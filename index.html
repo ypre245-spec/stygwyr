@@ -279,7 +279,7 @@
         #captured-thumbnails {
             position: absolute;
             top: auto; 
-            bottom: 10px; /* Moved to the very bottom */
+            bottom: 20px; /* Adjusted: Low enough to be at the bottom, high enough (10px+) to clear edge/scrollbar */
             left: 0;
             right: 0;
             width: 100%;
@@ -287,12 +287,12 @@
             flex-direction: row; 
             justify-content: center;
             gap: 10px;
-            z-index: 35; /* Higher than control bar (30) so it's visible */
-            max-height: 120px;
+            z-index: 35; 
+            max-height: 130px; 
             overflow-x: auto; 
             overflow-y: hidden;
-            padding: 0 10px;
-            /* pointer-events: none; Removed to allow interaction if needed, as it's no longer blocking the capture button */
+            padding: 10px; 
+            pointer-events: none; /* Important: Clicks pass through to buttons behind */
         }
         .cap-thumb {
             width: 130px;
@@ -302,17 +302,26 @@
             border-radius: 6px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             background: #000;
-            flex-shrink: 0; /* Prevent squishing */
-            animation: thumb-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            flex-shrink: 0; 
+            /* New Animation: Slide in from right with snap */
+            animation: thumb-slide-snap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .cap-thumb.active-retake {
             border-color: var(--brand-color);
             transform: scale(1.1);
             box-shadow: 0 0 10px var(--brand-color);
         }
-        @keyframes thumb-pop {
-            0% { transform: translateY(50px) scale(0.5); opacity: 0; }
-            100% { transform: translateY(0) scale(1); opacity: 1; }
+        
+        /* New Animation Keyframes */
+        @keyframes thumb-slide-snap {
+            0% { 
+                opacity: 0; 
+                transform: translateX(50px) scale(0.8) rotate(5deg); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateX(0) scale(1) rotate(0deg); 
+            }
         }
 
         /* Zoom Slider */
@@ -1019,6 +1028,17 @@
                 const isActive = gridOverlay.style.display === 'block';
                 gridOverlay.style.display = isActive ? 'none' : 'block';
                 toggleGridBtn.classList.toggle('active', !isActive);
+            });
+
+            // NEW: Ensure Mirror Toggle updates preview immediately
+            mirrorToggle.addEventListener('change', () => {
+                if(mirrorToggle.checked) { 
+                    videoEl.classList.add('mirrored'); 
+                    aiCanvas.classList.add('mirrored'); 
+                } else { 
+                    videoEl.classList.remove('mirrored'); 
+                    aiCanvas.classList.remove('mirrored'); 
+                }
             });
 
             // --- Modal Handlers ---
@@ -1870,7 +1890,12 @@
                 if (videoAspect > requiredAspectRatio) { sW = sourceH * requiredAspectRatio; sX = (sourceW - sW) / 2; } else { sH = sourceW / requiredAspectRatio; sY = (sourceH - sH) / 2; }
                 captureCanvas.width = sW; captureCanvas.height = sH;
                 captureCtx.save(); captureCtx.filter = filterSelect.value;
-                if (mirrorToggle.checked) { captureCtx.translate(sW, 0); captureCtx.scale(-1, 1); }
+                
+                // MODIFIED: Removed the mirror transformation for the capture Context.
+                // This ensures that even if the user is viewing a Mirrored Preview, 
+                // the final saved photo is "True" (Text is readable).
+                // if (mirrorToggle.checked) { captureCtx.translate(sW, 0); captureCtx.scale(-1, 1); } 
+                
                 captureCtx.drawImage(sourceEl, sX, sY, sW, sH, 0, 0, sW, sH); captureCtx.restore();
                 const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
                 
@@ -1880,7 +1905,15 @@
                 // REMOVED: renderCapturedThumbnails(); // Don't render immediately
                 
                 photoPreviewEl.src = currentPhotoDataUrl; photoPreviewEl.style.filter = filterSelect.value;
-                const randomTilt = Math.random() * 6 - 3; photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`; photoPreviewEl.classList.add('show-preview');
+                const randomTilt = Math.random() * 6 - 3; 
+                
+                // NEW: Visual Mirror Logic for Preview Only
+                // If Mirror is ON, we visually flip the preview element so it matches the live camera feed (continuity).
+                // However, the underlying src (currentPhotoDataUrl) remains "True" (un-mirrored) for the thumbnail/save.
+                const scaleX = mirrorToggle.checked ? -1.1 : 1.1;
+                
+                photoPreviewEl.style.transform = `translate(-50%, -50%) scale(${scaleX}, 1.1) rotate(${randomTilt}deg)`; 
+                photoPreviewEl.classList.add('show-preview');
                 
                 setTimeout(() => { 
                     photoPreviewEl.classList.remove('show-preview'); photoPreviewEl.style.transform = ''; photoPreviewEl.src = ''; isCountingDown = false;
