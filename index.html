@@ -275,27 +275,34 @@
         #photo-preview-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); max-width: 90vw; max-height: 90vh; display: none; object-fit: contain; z-index: 30; border-radius: 12px; opacity: 0; transition: transform 0.2s, opacity 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         #photo-preview-overlay.show-preview { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 
-        /* NEW: Captured Thumbnails Stack */
+        /* NEW: Captured Thumbnails Stack (Moved to Bottom) */
         #captured-thumbnails {
             position: absolute;
-            top: 130px;
-            right: 20px;
+            top: auto; 
+            bottom: 10px; /* Moved to the very bottom */
+            left: 0;
+            right: 0;
+            width: 100%;
             display: flex;
-            flex-direction: column;
+            flex-direction: row; 
+            justify-content: center;
             gap: 10px;
-            z-index: 24;
-            max-height: 55vh;
-            overflow-y: auto;
-            pointer-events: none; /* Let clicks pass through */
+            z-index: 35; /* Higher than control bar (30) so it's visible */
+            max-height: 120px;
+            overflow-x: auto; 
+            overflow-y: hidden;
+            padding: 0 10px;
+            /* pointer-events: none; Removed to allow interaction if needed, as it's no longer blocking the capture button */
         }
         .cap-thumb {
-            width: 90px;
-            height: 65px;
+            width: 130px;
+            height: 95px;
             object-fit: cover;
             border: 2px solid rgba(255,255,255,0.7);
             border-radius: 6px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             background: #000;
+            flex-shrink: 0; /* Prevent squishing */
             animation: thumb-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .cap-thumb.active-retake {
@@ -304,8 +311,8 @@
             box-shadow: 0 0 10px var(--brand-color);
         }
         @keyframes thumb-pop {
-            0% { transform: translateX(50px) scale(0.5); opacity: 0; }
-            100% { transform: translateX(0) scale(1); opacity: 1; }
+            0% { transform: translateY(50px) scale(0.5); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
         }
 
         /* Zoom Slider */
@@ -591,8 +598,7 @@
             <img id="photo-preview-overlay" /> 
             <div id="photo-counter-overlay">0 / 4</div>
             
-            <!-- NEW: Container for Thumbnails -->
-            <div id="captured-thumbnails"></div>
+            <!-- MOVED: Thumbnails removed from here -->
 
             <div id="countdown-overlay"></div>
         </div>
@@ -624,6 +630,9 @@
             </div>
             <button id="capture-btn" title="Press Spacebar"></button>
         </div>
+
+        <!-- NEW LOCATION: Placed here to sit ON TOP of the bottom bar gradient -->
+        <div id="captured-thumbnails"></div>
     </div>
 
     <!-- View 3: Preview & Edit -->
@@ -1868,13 +1877,16 @@
                 if (retakeIndex !== null) { capturedPhotos[retakeIndex] = currentPhotoDataUrl; } else { capturedPhotos.push(currentPhotoDataUrl); photoCount++; }
                 
                 updatePhotoCounter(); 
-                renderCapturedThumbnails(); // Update thumbnails after capture
+                // REMOVED: renderCapturedThumbnails(); // Don't render immediately
                 
                 photoPreviewEl.src = currentPhotoDataUrl; photoPreviewEl.style.filter = filterSelect.value;
                 const randomTilt = Math.random() * 6 - 3; photoPreviewEl.style.transform = `translate(-50%, -50%) scale(1.1) rotate(${randomTilt}deg)`; photoPreviewEl.classList.add('show-preview');
                 
                 setTimeout(() => { 
                     photoPreviewEl.classList.remove('show-preview'); photoPreviewEl.style.transform = ''; photoPreviewEl.src = ''; isCountingDown = false;
+                    
+                    renderCapturedThumbnails(); // ADDED: Render here, after preview animation ends
+
                     if (retakeIndex !== null) { retakeIndex = null; stopCamera(); createFinalImage(); } 
                     else { if (photoCount < numPhotosToTake) { startCountdown(); } else { stopCamera(); createFinalImage(); } } 
                 }, 2000);
