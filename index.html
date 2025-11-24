@@ -474,9 +474,30 @@
 
         /* Keyboard Shortcuts Overlay */
         #kb-shortcuts-overlay { position: absolute; bottom: 10px; right: 10px; color: #555; font-size: 0.7em; pointer-events: none; opacity: 0.5; }
+
+        /* NEW: Flash Overlay */
+        #flash-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            z-index: 9999; /* On top of everything */
+            opacity: 0;
+            pointer-events: none;
+            display: none;
+        }
+        #flash-overlay.flash-active {
+            display: block;
+            animation: flash-anim 0.4s ease-out forwards;
+        }
+        @keyframes flash-anim {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
+
+    <!-- NEW: Flash Element -->
+    <div id="flash-overlay"></div>
 
     <!-- NEW: Login View -->
     <div id="login-view" class="view">
@@ -495,7 +516,6 @@
             </div>
             <div id="login-error" class="login-error">Incorrect Passcode</div>
         </div>
-        <!-- MOVED: Welcome Overlay removed from here -->
     </div>
 
     <!-- MOVED: Welcome Overlay is now a direct child of body (Global Overlay) -->
@@ -512,7 +532,7 @@
             <div class="modal-header">Settings</div>
             
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
-                <!-- NEW: User Info -->
+                <!-- Added missing element -->
                 <div id="user-info-display" style="font-weight:bold; color:var(--brand-color); margin-bottom: 10px;">
                     Logged in as: Guest
                 </div>
@@ -523,6 +543,18 @@
                 </select>
             </div>
             
+            <!-- NEW: Driver Compatibility Selector -->
+            <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
+                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Driver / Resolution Fix</label>
+                <select id="driver-mode-select" style="width:100%;">
+                    <option value="auto" selected>Auto (Smart Detect)</option>
+                    <option value="sony">Sony / Green Line Fix (1024x576)</option>
+                    <option value="hd">Standard HD (1280x720)</option>
+                    <option value="vga">Safe Mode / VGA (640x480)</option>
+                </select>
+                <div style="font-size:0.8em; color:#666; margin-top:5px;">*Select 'Sony' if seeing green lines or logo only.</div>
+            </div>
+
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
                 <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Manual Photo Count</label>
                 <select id="photo-count-select" style="width:100%;">
@@ -536,7 +568,7 @@
                 </select>
             </div>
 
-            <!-- NEW: Logout Button -->
+            <!-- Added missing element -->
             <button id="logout-btn" class="btn" style="background-color:#dc3545; width:100%; margin-top:10px;">Logout</button>
 
             <div class="modal-footer">
@@ -762,6 +794,12 @@
                     <option value="saturate(2.0) hue-rotate(10deg) contrast(1.1)">Cyberpunk</option>
                     <option value="grayscale(1) contrast(1.5) brightness(0.9)">Dramatic</option>
                 </select>
+                
+                <!-- NEW: Flash Toggle Button -->
+                <button id="toggle-flash-btn" class="control-btn-small" title="Toggle Screen Flash">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                </button>
+
                 <button id="toggle-ai-blur-btn" class="control-btn-small" title="AI Portrait Mode"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></button>
                 <button id="toggle-grid-btn" class="control-btn-small" title="Rule of Thirds Grid"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg></button>
                 <!-- Removed Gesture Button -->
@@ -840,6 +878,32 @@
                 osc2.start(t); osc2.stop(t + 0.4);
             }
 
+            // MODIFIED: Haptic-Style Feedback (Short Low-Freq Thud)
+            function playKeyClick() {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const t = audioCtx.currentTime;
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); 
+                gain.connect(audioCtx.destination);
+                
+                // Haptics use low frequency sine waves (like a vibration motor)
+                osc.type = 'sine'; 
+                
+                // Quick pitch drop to simulate the "kick" of a motor
+                osc.frequency.setValueAtTime(150, t);
+                osc.frequency.exponentialRampToValueAtTime(40, t + 0.03);
+                
+                // Very short envelope (tight thud)
+                // INCREASED VOLUME: Changed from 0.3 to 0.8
+                gain.gain.setValueAtTime(0.8, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+                
+                osc.start(t); 
+                osc.stop(t + 0.04);
+            }
+
             // --- DOM Elements ---
             const views = {
                 login: document.getElementById('login-view'),
@@ -873,6 +937,9 @@
             const settingsModal = document.getElementById('settings-modal');
             const settingsBtn = document.getElementById('settings-btn');
             const closeSettingsBtn = document.getElementById('close-settings-btn');
+            
+            // NEW: Driver Mode Select
+            const driverModeSelect = document.getElementById('driver-mode-select');
             
             const lgModal = document.getElementById('layout-generator-modal');
             const openLgBtn = document.getElementById('open-layout-gen-btn');
@@ -930,6 +997,10 @@
             const timerSelect = document.getElementById('timer-select');
             const mirrorToggle = document.getElementById('mirror-toggle');
             const toggleAiBlurBtn = document.getElementById('toggle-ai-blur-btn');
+            
+            // NEW: Flash Button Element
+            const toggleFlashBtn = document.getElementById('toggle-flash-btn');
+
             const toggleOverlayBtn = document.getElementById('toggle-template-overlay-btn');
             const toggleGridBtn = document.getElementById('toggle-grid-btn');
             // Removed toggleGestureBtn
@@ -959,6 +1030,9 @@
             const captureCanvas = document.getElementById('capture-canvas');
             const captureCtx = captureCanvas.getContext('2d');
 
+            // NEW: Flash Element
+            const flashOverlay = document.getElementById('flash-overlay');
+
             const confirmModal = document.getElementById('confirm-modal');
             const confirmMsg = document.getElementById('confirm-msg');
             const confirmYes = document.getElementById('confirm-yes');
@@ -979,6 +1053,8 @@
             let numPhotosToTake = 4; 
             let templateOverlayEnabled = false;
             let aiBlurEnabled = false;
+            let flashEnabled = false; // NEW: State variable for flash
+            
             // Removed gestureEnabled, handsDetector, gestureDebounce
             let selfieSegmentation = null;
             let animationFrameId = null;
@@ -986,6 +1062,7 @@
             let isQuickStart = false; // New flag for navigation history
             let gestureDebounce = 0;
             
+            let lastUsedDriverMode = null; // NEW: Track mode to force restart if changed
             let photoSlots = []; 
             let detectedHoles = []; // Store background snap targets
             let undoStack = []; 
@@ -1166,6 +1243,12 @@
                 if (aiBlurEnabled) startVideoProcessing();
             });
 
+            // NEW: Flash Toggle Logic
+            toggleFlashBtn.addEventListener('click', () => {
+                flashEnabled = !flashEnabled;
+                toggleFlashBtn.classList.toggle('active');
+            });
+
             // Removed toggleGestureBtn event listener
 
             toggleGridBtn.addEventListener('click', () => {
@@ -1204,9 +1287,9 @@
                 let user = "";
 
                 if (encodedPass === 'anJuZXN0LjIwMjU=') {
-                    user = "Sir Jrnest";
+                    user = "Master Jrnest";
                 } else if (encodedPass === 'MDkyMDg4OTQzMDUyNDc=') {
-                    user = "Sir Dave";
+                    user = "Master Dave";
                 } else {
                     // Error Animation
                     loginCard.classList.add('error-shake');
@@ -1248,6 +1331,7 @@
             }
 
             function updateUserDisplay() {
+                if (!userInfoDisplay) return; // Safety check
                 const user = localStorage.getItem('pb_auth_user') || "Guest";
                 userInfoDisplay.textContent = `Logged in as: ${user}`;
             }
@@ -1266,19 +1350,27 @@
             loginPassInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') handleLogin();
             });
+            
+            // NEW: Trigger sound on typing
+            loginPassInput.addEventListener('input', playKeyClick);
 
-            logoutBtn.addEventListener('click', () => {
-                localStorage.removeItem('pb_auth_user');
-                settingsModal.style.display = 'none';
-                showView('login');
-            });
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    localStorage.removeItem('pb_auth_user');
+                    settingsModal.style.display = 'none';
+                    showView('login');
+                });
+            }
 
 
             // --- Modal Handlers ---
             settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
-                // Removed currentResolution update
+                // If in camera view, restart camera to apply new driver settings
+                if (views.camera.style.display === 'flex') {
+                    startCamera();
+                }
             });
             
             galleryBtn.addEventListener('click', () => galleryModal.style.display = 'flex');
@@ -2005,7 +2097,8 @@
                 }
 
                 // 2. Otherwise, exit the camera view
-                stopCamera(); 
+                stopCamera(); // Soft stop (keeps camera hot for quick return)
+                
                 capturedPhotos = []; 
                 photoCount = 0; 
                 cropFrameOverlay.style.display = 'none'; 
@@ -2022,38 +2115,226 @@
             }
             closeCameraBtn.addEventListener('click', exitCamera);
 
-            async function startCamera() {
+            // NEW: Hard Stop (Used when changing settings)
+            function killCameraStream() {
+                if (stream) {
+                    stream.getTracks().forEach(track => {
+                        track.stop();
+                        track.enabled = false;
+                    });
+                    stream = null;
+                }
+                videoEl.srcObject = null;
+            }
+
+            // MODIFIED: Robust startCamera with Smart Reuse
+            async function startCamera(retryCount = 0) {
                 if (retakeIndex === null) { capturedPhotos = []; photoCount = 0; } else { photoCount = retakeIndex; } 
                 
                 updatePhotoCounter(); 
-                renderCapturedThumbnails(); // Initialize/Clear thumbnails
+                renderCapturedThumbnails(); 
                 
                 captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
-                if (stream) stopCamera();
                 
-                const selectedDeviceId = cameraSelect.value;
+                let selectedDeviceId = cameraSelect.value;
+                const driverMode = driverModeSelect.value; 
                 
-                // Fixed to HD (720p) default for performance
-                const idealWidth = 1280; 
-                const idealHeight = 720; 
+                if (selectedDeviceId === "" || selectedDeviceId === "Loading cameras...") {
+                    selectedDeviceId = undefined; 
+                }
 
-                const constraints = { video: { width: { ideal: idealWidth }, height: { ideal: idealHeight }, aspectRatio: TARGET_ASPECT_RATIO, deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false };
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                    videoEl.srcObject = stream; await videoEl.play(); 
-                    cameraControls.classList.remove('controls-hidden');
-                    
-                    videoTrack = stream.getVideoTracks()[0];
-                    const caps = videoTrack.getCapabilities();
-                    if (caps.zoom) {
-                        zoomContainer.style.display = 'flex'; zoomSlider.min = caps.zoom.min; zoomSlider.max = caps.zoom.max; zoomSlider.step = caps.zoom.step; zoomSlider.value = caps.zoom.min;
-                    } else { zoomContainer.style.display = 'none'; }
+                // --- NEW: HOT STREAM REUSE ---
+                // Check if we have an active stream AND the settings haven't changed
+                const settingsChanged = (lastUsedDriverMode !== driverMode);
+                
+                if (stream && stream.active && videoEl.srcObject && !settingsChanged) {
+                    const track = stream.getVideoTracks()[0];
+                    // Check if track is healthy
+                    if (track.readyState === 'live') {
+                        const settings = track.getSettings();
+                        // If no specific device requested OR matches current device
+                        if (!selectedDeviceId || settings.deviceId === selectedDeviceId) {
+                            console.log("Camera is already live. Resuming playback.");
+                            
+                            // CRITICAL: Ensure video is playing (it might have been paused in stopCamera)
+                            try { await videoEl.play(); } catch(e) { console.log("Resume play caught:", e); }
+                            
+                            cameraControls.classList.remove('controls-hidden');
+                            
+                            // Restore Zoom UI
+                            try {
+                                const caps = track.getCapabilities();
+                                if (caps && caps.zoom) zoomContainer.style.display = 'flex';
+                            } catch(e) {}
 
-                    if (aiBlurEnabled) startVideoProcessing(); // Removed gestureEnabled check
-                } catch (err) { console.error(err); alert("Error accessing camera."); stopCamera(); showView('template'); }
+                            if (aiBlurEnabled) startVideoProcessing();
+                            
+                            // Ensure visibility
+                            if (!aiBlurEnabled) videoEl.style.opacity = 1;
+                            
+                            return; // EXIT FUNCTION: No hardware restart needed!
+                        }
+                    }
+                }
+
+                // IF WE REACH HERE: We need a fresh connection (New Device, New Mode, or First Run)
+                
+                // 1. Kill existing stream cleanly
+                if (stream) {
+                    killCameraStream(); // HARD STOP
+                    // Delay allows "sticky" drivers (Sony) to release hardware
+                    console.log("Releasing camera driver for restart...");
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                lastUsedDriverMode = driverMode; // Update state
+
+                // Define Constraints based on Dropdown
+                let constraintSets = [];
+
+                if (driverMode === 'sony') {
+                    // STRICT Sony Mode (1024x576)
+                    constraintSets = [{ 
+                        video: { 
+                            width: { min: 1024, ideal: 1024, max: 1024 }, 
+                            height: { min: 576, ideal: 576, max: 576 }, 
+                            deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
+                        }, 
+                        audio: false 
+                    }];
+                } else if (driverMode === 'hd') {
+                    // Standard HD
+                    constraintSets = [{ 
+                        video: { 
+                            width: { ideal: 1280 }, 
+                            height: { ideal: 720 }, 
+                            deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
+                        }, 
+                        audio: false 
+                    }];
+                } else if (driverMode === 'vga') {
+                    // Safe Mode
+                    constraintSets = [{ 
+                        video: { 
+                            width: { ideal: 640 }, 
+                            height: { ideal: 480 }, 
+                            deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
+                        }, 
+                        audio: false 
+                    }];
+                } else {
+                    // AUTO MODE (Fallback Sequence)
+                    constraintSets = [
+                        // 1. Try HD (Most Common)
+                        { 
+                            video: { 
+                                width: { ideal: 1280 }, height: { ideal: 720 }, 
+                                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
+                            }, audio: false 
+                        },
+                        // 2. Try Sony Native (Magic Resolution)
+                        { 
+                            video: { 
+                                width: { min: 1024, max: 1024 }, height: { min: 576, max: 576 }, 
+                                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
+                            }, audio: false 
+                        },
+                        // 3. Try VGA (Safe)
+                        { 
+                            video: { 
+                                width: { ideal: 640 }, height: { ideal: 480 }, 
+                                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
+                            }, audio: false 
+                        },
+                        // 4. Any Signal
+                        { 
+                            video: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, 
+                            audio: false 
+                        }
+                    ];
+                }
+
+                let activeStream = null;
+                let connectError = null;
+
+                // Loop through constraint sets until one works
+                for (const constraints of constraintSets) {
+                    try {
+                        console.log("Attempting camera connection with:", JSON.stringify(constraints.video));
+                        activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+                        console.log("Camera connected successfully.");
+                        break; 
+                    } catch (err) {
+                        console.warn("Connection attempt failed:", err.name);
+                        connectError = err;
+                    }
+                }
+
+                if (!activeStream) {
+                    // AUTO-RETRY LOGIC
+                    if (retryCount < 3) {
+                        console.log(`Camera failed. Retrying (${retryCount + 1}/3) in 0.5s...`);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        return startCamera(retryCount + 1);
+                    }
+
+                    console.error("CRITICAL: All camera attempts failed.", connectError);
+                    alert("Camera Error: Could not connect. Try changing 'Driver Fix' in Settings to 'Safe Mode' or check if another app is using the camera.");
+                    stopCamera(); 
+                    showView('template');
+                    return;
+                }
+
+                // --- SUCCESSFUL STREAM HANDLER ---
+                stream = activeStream;
+                videoEl.srcObject = stream;
+                
+                // Force attributes to prevent playback issues
+                videoEl.setAttribute('autoplay', '');
+                videoEl.setAttribute('muted', '');
+                videoEl.setAttribute('playsinline', '');
+                
+                // Wait for metadata to load before playing
+                videoEl.onloadedmetadata = () => {
+                    videoEl.play().then(() => {
+                        cameraControls.classList.remove('controls-hidden');
+                        
+                        // Apply Zoom capabilities if available
+                        videoTrack = stream.getVideoTracks()[0];
+                        try {
+                            const caps = videoTrack.getCapabilities();
+                            if (caps && caps.zoom) {
+                                zoomContainer.style.display = 'flex'; 
+                                zoomSlider.min = caps.zoom.min; 
+                                zoomSlider.max = caps.zoom.max; 
+                                zoomSlider.step = caps.zoom.step; 
+                                zoomSlider.value = caps.zoom.min;
+                            } else { 
+                                zoomContainer.style.display = 'none'; 
+                            }
+                        } catch(e) {
+                            zoomContainer.style.display = 'none'; 
+                        }
+
+                        // Ensure visibility
+                        if (!aiBlurEnabled) {
+                            videoEl.style.opacity = 1;
+                        } else {
+                            startVideoProcessing();
+                        }
+                    }).catch(e => console.error("Play failed:", e));
+                };
             }
             
-            function stopCamera() { cancelAnimationFrame(animationFrameId); if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; } videoEl.srcObject = null; videoEl.pause(); cameraControls.classList.remove('controls-hidden'); }
+            // MODIFIED: Soft Stop (Keeps Camera Alive)
+            function stopCamera() { 
+                cancelAnimationFrame(animationFrameId); 
+                // Removed: stream track stopping logic
+                // We ONLY pause the video element to save rendering resources,
+                // but we keep the MediaStream active ("Hot") so retakes are instant.
+                videoEl.pause(); 
+                cameraControls.classList.remove('controls-hidden'); 
+            }
             
             zoomSlider.addEventListener('input', () => { if (videoTrack) videoTrack.applyConstraints({ advanced: [{ zoom: zoomSlider.value }] }); });
 
@@ -2093,6 +2374,18 @@
             
             captureBtn.addEventListener('click', () => { if (videoEl.paused || videoEl.readyState < 3) return; captureBtn.style.display = 'none'; startCountdown(); });
             
+            // NEW: Flash Trigger Function
+            function triggerFlash() {
+                flashOverlay.classList.remove('flash-active');
+                void flashOverlay.offsetWidth; // Trigger reflow to restart animation
+                flashOverlay.classList.add('flash-active');
+                
+                // Clean up class after animation
+                setTimeout(() => {
+                    flashOverlay.classList.remove('flash-active');
+                }, 400);
+            }
+
             function startCountdown() {
                 if (isCountingDown) return; isCountingDown = true;
                 const selectedTimer = parseInt(timerSelect.value) || 5; let count = selectedTimer; 
@@ -2104,7 +2397,16 @@
                     if (count > 1) { countdownEl.textContent = count; countdownEl.classList.remove('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
                     else if (count === 1) { countdownEl.textContent = '👆'; countdownEl.classList.add('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
                     else { 
-                        clearInterval(countdownInterval); countdownInterval = null; countdownEl.textContent = ''; triggerCountdownAnimation(); cropFrameOverlay.style.display = 'none'; playShutter(); 
+                        clearInterval(countdownInterval); countdownInterval = null; countdownEl.textContent = ''; triggerCountdownAnimation(); cropFrameOverlay.style.display = 'none'; 
+                        
+                        // Trigger Effects
+                        playShutter(); 
+                        
+                        // UPDATED: Only fire flash if enabled
+                        if (flashEnabled) {
+                            triggerFlash(); 
+                        }
+
                         setTimeout(() => { countdownEl.style.display = 'none'; countdownEl.classList.remove('is-arrow'); takePhoto(); }, 300);
                     }
                 }, 1000);
