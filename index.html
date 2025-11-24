@@ -1287,9 +1287,9 @@
                 let user = "";
 
                 if (encodedPass === 'anJuZXN0LjIwMjU=') {
-                    user = "Master Jrnest";
+                    user = "Sir Jrnest";
                 } else if (encodedPass === 'MDkyMDg4OTQzMDUyNDc=') {
-                    user = "Master Dave";
+                    user = "Sir Dave";
                 } else {
                     // Error Animation
                     loginCard.classList.add('error-shake');
@@ -1301,8 +1301,8 @@
                     return;
                 }
 
-                // Save User
-                localStorage.setItem('pb_auth_user', user);
+                // Save User (Changed to sessionStorage for auto-logout on close)
+                sessionStorage.setItem('pb_auth_user', user);
                 updateUserDisplay();
 
                 // Successful Login
@@ -1332,12 +1332,12 @@
 
             function updateUserDisplay() {
                 if (!userInfoDisplay) return; // Safety check
-                const user = localStorage.getItem('pb_auth_user') || "Guest";
+                const user = sessionStorage.getItem('pb_auth_user') || "Guest";
                 userInfoDisplay.textContent = `Logged in as: ${user}`;
             }
 
             function checkSession() {
-                const user = localStorage.getItem('pb_auth_user');
+                const user = sessionStorage.getItem('pb_auth_user');
                 if (user) {
                     updateUserDisplay();
                     showView('template'); // Skip login
@@ -1356,7 +1356,7 @@
 
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', () => {
-                    localStorage.removeItem('pb_auth_user');
+                    sessionStorage.removeItem('pb_auth_user');
                     settingsModal.style.display = 'none';
                     showView('login');
                 });
