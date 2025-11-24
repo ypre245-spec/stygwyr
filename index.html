@@ -2735,16 +2735,16 @@
                 showNotification("Saved!", imageData);
             });
             
-            // UPDATED: Close Logic to handle gallery return without flashing Home
+            // FIX: Ensure Home Screen is restored behind the gallery when returning
             closePreviewBtn.addEventListener('click', () => { 
+                // 1. Always go back to the Template (Home) view first
+                // This ensures the background is not empty/black when the modal opens
+                showView('template'); 
+
+                // 2. If we came from the gallery, re-open the gallery modal on top
                 if (returnToGallery) {
-                    // Directly switch to modal without showing template view
                     galleryModal.style.display = 'flex'; 
-                    // Hide preview view manually since we aren't using showView('template')
-                    views.preview.style.display = 'none'; 
                     returnToGallery = false; 
-                } else {
-                    showView('template');
                 }
             }); 
             
