@@ -1258,7 +1258,8 @@
             function saveToGallery(dataUrl) {
                 let gallery = [];
                 try {
-                    gallery = JSON.parse(sessionStorage.getItem('pb_gallery') || '[]');
+                    // CHANGED: Switched to localStorage so photos persist after closing browser
+                    gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
                 } catch (e) { gallery = []; }
 
                 // Add new image
@@ -1270,7 +1271,8 @@
                 let saved = false;
                 while (!saved && gallery.length > 0) {
                     try {
-                        sessionStorage.setItem('pb_gallery', JSON.stringify(gallery));
+                        // CHANGED: Switched to localStorage
+                        localStorage.setItem('pb_gallery', JSON.stringify(gallery));
                         saved = true;
                     } catch (e) {
                         // If quota exceeded, remove the OLDEST image (last in array)
@@ -1292,7 +1294,8 @@
             }
             
             function renderGallery() {
-                const gallery = JSON.parse(sessionStorage.getItem('pb_gallery') || '[]');
+                // CHANGED: Retrieve from localStorage
+                const gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
                 galleryList.innerHTML = '';
                 if(gallery.length === 0) {
                     galleryList.innerHTML = '<div class="gallery-empty">No photos in this session yet.</div>';
