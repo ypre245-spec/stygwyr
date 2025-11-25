@@ -649,6 +649,16 @@
                 </select>
             </div>
 
+            <!-- NEW: Save Directory Selector -->
+            <div class="modal-row" style="flex-direction:column; align-items:flex-start; margin-top: 10px; border-top: 1px solid #444; padding-top: 10px; width: 100%;">
+                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Storage Location</label>
+                <div style="display:flex; gap:10px; width:100%; align-items:center;">
+                    <button id="choose-dir-btn" class="btn" style="background:#333; font-size:0.85em; flex:1;">📂 Select Folder</button>
+                    <div id="dir-status" style="font-size:0.8em; color:#888; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Browser Default</div>
+                </div>
+                <div style="font-size:0.75em; color:#555; margin-top:4px;">*Requires Chrome/Edge. Falls back to Downloads folder.</div>
+            </div>
+
             <!-- NEW: Analytics Dashboard -->
             <div class="modal-header" style="margin-top:20px; border-top:1px solid #444; padding-top:10px;">Analytics</div>
             <div class="stats-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
@@ -1144,6 +1154,11 @@
             const closeSettingsBtn = document.getElementById('close-settings-btn');
             const driverModeSelect = document.getElementById('driver-mode-select');
             
+            // Directory Picking Elements
+            const chooseDirBtn = document.getElementById('choose-dir-btn');
+            const dirStatus = document.getElementById('dir-status');
+            let saveDirectoryHandle = null;
+
             // Stats Elements
             const resetStatsBtn = document.getElementById('reset-stats-btn');
 
@@ -1673,6 +1688,28 @@
                 }
             });
             
+            // NEW: Directory Picker Logic
+            if ('showDirectoryPicker' in window) {
+                chooseDirBtn.addEventListener('click', async () => {
+                    try {
+                        saveDirectoryHandle = await window.showDirectoryPicker();
+                        dirStatus.textContent = `📂 ${saveDirectoryHandle.name}`;
+                        dirStatus.style.color = '#4cd964';
+                        showNotification("Folder Selected");
+                    } catch (err) {
+                        console.log("Directory pick cancelled or failed", err);
+                        if (!saveDirectoryHandle) {
+                            dirStatus.textContent = "Browser Default";
+                            dirStatus.style.color = "#888";
+                        }
+                    }
+                });
+            } else {
+                chooseDirBtn.disabled = true;
+                chooseDirBtn.textContent = "Not Supported";
+                dirStatus.textContent = "Browser Default Only";
+            }
+
             galleryBtn.addEventListener('click', () => galleryModal.style.display = 'flex');
             closeGalleryBtn.addEventListener('click', () => galleryModal.style.display = 'none');
             galleryCloseBtnFooter.addEventListener('click', () => galleryModal.style.display = 'none');
@@ -2549,7 +2586,8 @@
             }
             
             function finalizeDraw() {
-                saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.60));
+                // If directory is set, save automatically? No, wait for user click on Save btn
+                // But we can check here if we want auto-save
                 
                 // Stats: Update Sessions Completed
                 stats.sessions++;
@@ -2631,15 +2669,43 @@
                 showView('template');
             });
 
-            saveBtn.addEventListener('click', () => { 
-                const link = document.createElement('a'); 
+            // UPDATED: Save Button with File System Access API support
+            saveBtn.addEventListener('click', async () => { 
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                link.download = `photobooth_pro_${timestamp}.png`; 
+                const filename = `photobooth_pro_${timestamp}.png`;
                 const imageData = mergeCanvas.toDataURL('image/png');
+
+                // 1. Check if Custom Directory is Set
+                if (saveDirectoryHandle) {
+                    try {
+                        showNotification("Saving...", null, false); 
+                        
+                        // Create Blob from DataURL
+                        const response = await fetch(imageData);
+                        const blob = await response.blob();
+
+                        // Create file handle in the chosen directory
+                        const fileHandle = await saveDirectoryHandle.getFileHandle(filename, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        
+                        await writable.write(blob);
+                        await writable.close();
+
+                        showNotification("Saved to Folder!", imageData);
+                        return; // Exit, don't do default download
+                    } catch (err) {
+                        console.error("File System Save Failed", err);
+                        showNotification("Folder Save Failed", null, true);
+                    }
+                }
+
+                // 2. Default Browser Download (Fallback)
+                const link = document.createElement('a'); 
+                link.download = filename; 
                 link.href = imageData; 
                 link.click(); 
 
-                showNotification("Saved!", imageData);
+                showNotification("Saved to Downloads!", imageData);
             });
             
             closePreviewBtn.addEventListener('click', () => { 
@@ -2656,7 +2722,6 @@
             startMappedBtn.addEventListener('click', () => { if (photoSlots.length === numPhotosToTake) { saveState(); showView('camera'); startCamera(); } });
             
             printBtn.addEventListener('click', () => {
-                // Stats: Update Prints
                 stats.prints++;
                 saveStats();
 
@@ -2677,7 +2742,7 @@
 
                 if (isStrip) {
                     const pCanvas = document.createElement('canvas');
-                    pCanvas.width = mergeCanvas.width * 2 + 100; // Add gap
+                    pCanvas.width = mergeCanvas.width * 2 + 100; 
                     pCanvas.height = mergeCanvas.height;
                     const pCtx = pCanvas.getContext('2d');
                     pCtx.fillStyle = 'white'; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
