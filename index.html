@@ -124,26 +124,22 @@
             display: none;
             align-items: center; justify-content: center;
             z-index: 1000;
-            /* CHANGED: For Curtain Reveal Effect */
             transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
         }
         .welcome-content { text-align: center; }
         #welcome-icon { font-size: 4em; margin-bottom: 20px; animation: wave 1.5s infinite; display: inline-block; }
         
-        /* UPDATED: Container for Typed Text */
         #welcome-msg { 
             font-size: 2em; font-weight: 300; color: white; 
-            min-height: 1.2em; /* Reserve space */
+            min-height: 1.2em; 
         }
         
-        /* NEW: Typewriter Cursor */
         .typing-cursor::after {
             content: '|';
             animation: blink 1s step-end infinite;
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-        /* NEW: Name Pop Animation */
         .name-pop {
             display: inline-block;
             font-weight: 700; color: #4a90e2;
@@ -155,14 +151,12 @@
         
         @keyframes wave { 0% { transform: rotate(0deg); } 10% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 30% { transform: rotate(14deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } 60% { transform: rotate(0deg); } 100% { transform: rotate(0deg); } }
 
-
         /* --- HOME SCREEN UI --- */
         #template-view {
             flex-direction: column; padding: 20px; overflow-y: auto;
             background: radial-gradient(circle at top, #2a2a2a 0%, #121212 100%);
         }
 
-        /* Hero Section */
         .hero-section {
             text-align: center; margin-bottom: 30px;
         }
@@ -173,7 +167,6 @@
         }
         .hero-subtitle { color: #888; font-size: 1em; margin-top: 5px; font-weight: 400; }
 
-        /* Settings Icon */
         .settings-btn {
             position: fixed;
             top: 20px; right: 20px;
@@ -186,7 +179,6 @@
         .settings-btn:hover { background: rgba(255,255,255,0.2); }
         .settings-btn svg { width: 24px; height: 24px; fill: white; }
 
-        /* Cards Layout */
         .cards-container {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px; width: 100%; max-width: 900px;
@@ -203,7 +195,6 @@
         .card-icon { color: #4a90e2; }
         .card-title { font-size: 1.1em; font-weight: 600; margin: 0; }
         
-        /* Buttons */
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
         .action-btn {
@@ -218,7 +209,6 @@
         .btn-primary { background: var(--brand-color); color: white; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px; border:none; cursor:pointer; }
         .btn-primary:hover { opacity: 0.9; }
 
-        /* Hidden Inputs */
         #template-input { display: none; }
         #auto-map-msg { color: #4cd964; font-weight: 600; text-align: center; font-size: 0.9em; display: none; margin-top: 10px; }
         #file-name { color: #888; font-size: 0.85em; text-align: center; margin-top: 5px; font-style: italic; }
@@ -228,7 +218,6 @@
             text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7;
         }
 
-        /* Modals */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); z-index: 200;
@@ -265,7 +254,6 @@
             padding: 8px; border-radius: 6px; font-size: 0.95em;
         }
 
-        /* --- OTHER VIEWS --- */
         #mapping-view, #preview-view { 
             flex-direction: column; 
         }
@@ -274,7 +262,6 @@
         #mapping-canvas { border: 2px dashed #555; cursor: crosshair; max-width: 95vw; max-height: 70vh; object-fit: contain; box-shadow: var(--shadow); touch-action: none; }
         .mapping-text { margin: 5px 0 10px 0; font-size: 1.1em; font-weight: 500; color: #ffcc00; text-align: center; }
         
-        /* Mapping Toolbar */
         #mapping-toolbar {
             display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center;
         }
@@ -290,7 +277,6 @@
             background: #000;
         }
 
-        /* Updated Mapping Controls */
         #mapping-controls-panel {
             background: #2c2c2c; padding: 12px; border-radius: 12px; margin-top: 10px; 
             display: flex; flex-direction: column; gap: 8px; align-items: center;
@@ -302,7 +288,6 @@
         #rotation-slider { accent-color: var(--brand-color); flex: 1; min-width: 100px; height: 20px; }
         .rot-display { font-family: monospace; color: var(--brand-color); width: 45px; text-align: right; font-weight: bold; }
 
-        /* CAMERA VIEW - IMMERSIVE LAYOUT */
         #camera-view {
             display: none;
             background: black;
@@ -526,7 +511,6 @@
         }
         .toast-action:hover { background: rgba(0,0,0,0.4); }
 
-        /* NEW: Undo Button Style */
         .toast-undo {
             margin-left: 5px; padding: 4px 10px; background: rgba(255, 255, 255, 0.9);
             color: #333; border-radius: 12px; cursor: pointer; font-size: 0.8em;
@@ -535,10 +519,9 @@
         }
         .toast-undo:hover { transform: scale(1.05); }
 
-        /* NEW: CRT Power Off Animation Class */
         body.powering-down {
             animation: turn-off 0.55s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-            pointer-events: none; /* Prevent clicks during anim */
+            pointer-events: none; 
         }
         
         @keyframes turn-off {
@@ -547,9 +530,49 @@
             100% { transform: scale(0, 0); filter: brightness(0); opacity: 0; }
         }
 
+        /* NEW: Attract Screen */
+        #attract-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 1500; display: none;
+            cursor: pointer;
+        }
+        .attract-content {
+            position: relative; width: 100%; height: 100%;
+        }
+        #attract-img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: opacity 1s ease-in-out;
+            opacity: 0.6;
+        }
+        .attract-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+        }
+        .attract-text {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            text-align: center; color: white; width: 100%;
+        }
+        .attract-text h1 {
+            font-size: 1.5em; margin: 0; text-transform: uppercase; letter-spacing: 3px;
+            animation: pulse-text 2s infinite; text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+        }
+        @keyframes pulse-text { 0% { opacity: 0.7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.7; transform: scale(1); } }
+
     </style>
 </head>
 <body>
+
+    <!-- Attract Screen Overlay -->
+    <div id="attract-screen">
+        <div class="attract-content">
+            <img id="attract-img" src="" alt="">
+            <div class="attract-overlay"></div>
+            <div class="attract-text">
+                <h1>Touch to Start</h1>
+                <p>PhotoBooth Pro</p>
+            </div>
+        </div>
+    </div>
 
     <div id="flash-overlay"></div>
 
@@ -558,7 +581,6 @@
         <svg id="toast-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <span id="notification-text">Saved to Device</span>
         <span id="toast-view-btn" class="toast-action">View</span>
-        <!-- NEW: Undo Button -->
         <span id="toast-undo-btn" class="toast-undo" style="display:none;">UNDO</span>
     </div>
 
@@ -627,6 +649,28 @@
                 </select>
             </div>
 
+            <!-- NEW: Analytics Dashboard -->
+            <div class="modal-header" style="margin-top:20px; border-top:1px solid #444; padding-top:10px;">Analytics</div>
+            <div class="stats-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div class="stat-box" style="background:#111; padding:10px; border-radius:8px; text-align:center;">
+                    <div id="stat-photos" style="font-size:1.5em; font-weight:bold; color:var(--brand-color);">0</div>
+                    <div style="font-size:0.7em; color:#888;">Photos Taken</div>
+                </div>
+                <div class="stat-box" style="background:#111; padding:10px; border-radius:8px; text-align:center;">
+                    <div id="stat-sessions" style="font-size:1.5em; font-weight:bold; color:#28a745;">0</div>
+                    <div style="font-size:0.7em; color:#888;">Sessions</div>
+                </div>
+                <div class="stat-box" style="background:#111; padding:10px; border-radius:8px; text-align:center;">
+                    <div id="stat-prints" style="font-size:1.5em; font-weight:bold; color:#ffc107;">0</div>
+                    <div style="font-size:0.7em; color:#888;">Prints</div>
+                </div>
+                <div class="stat-box" style="background:#111; padding:10px; border-radius:8px; text-align:center;">
+                     <div id="stat-storage" style="font-size:1.2em; font-weight:bold; color:#dc3545;">0 MB</div>
+                    <div style="font-size:0.7em; color:#888;">Est. Storage</div>
+                </div>
+            </div>
+            <button id="reset-stats-btn" class="btn" style="width:100%; background:#333; font-size:0.8em;">Reset Statistics</button>
+
             <div class="modal-footer">
                 <button id="logout-btn" class="btn" style="background-color: transparent; border: 1px solid #dc3545; color: #dc3545; padding: 8px 15px; font-size: 0.9em;">Logout</button>
                 <button id="close-settings-btn" class="btn" style="background-color:#4a90e2;">Done</button>
@@ -691,7 +735,6 @@
                 <div class="gallery-empty">No photos yet</div>
             </div>
             <div class="modal-footer">
-                <!-- NEW: Delete All Button -->
                 <button id="gallery-delete-all-btn" class="btn" style="background-color: transparent; border: 1px solid #dc3545; color: #dc3545;">Delete All</button>
                 <button id="gallery-close-btn-footer" class="btn">Close</button>
             </div>
@@ -905,6 +948,89 @@
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             let audioCtx = new AudioContext();
 
+            // Stats Variables
+            let stats = { photos: 0, sessions: 0, prints: 0 };
+            
+            function loadStats() {
+                const s = localStorage.getItem('pb_stats');
+                if (s) stats = JSON.parse(s);
+            }
+            function saveStats() {
+                localStorage.setItem('pb_stats', JSON.stringify(stats));
+                updateStatsUI();
+            }
+            function updateStatsUI() {
+                if(document.getElementById('stat-photos')) {
+                    document.getElementById('stat-photos').textContent = stats.photos;
+                    document.getElementById('stat-sessions').textContent = stats.sessions;
+                    document.getElementById('stat-prints').textContent = stats.prints;
+                    const estSize = ((stats.photos * 0.3) + (stats.sessions * 0.5)).toFixed(1);
+                    document.getElementById('stat-storage').textContent = estSize + ' MB';
+                }
+            }
+            loadStats(); // Load stats on startup
+
+            // Attract Mode Variables
+            let idleTimeout;
+            let attractImageInterval;
+            const IDLE_LIMIT = 60000; // 60 seconds
+
+            function resetIdleTimer() {
+                clearTimeout(idleTimeout);
+                if (document.getElementById('attract-screen').style.display === 'flex') {
+                    stopAttractMode();
+                }
+                // Only start timer if logged in
+                if (sessionStorage.getItem('pb_auth_user')) {
+                    idleTimeout = setTimeout(startAttractMode, IDLE_LIMIT);
+                }
+            }
+
+            function startAttractMode() {
+                // Don't start if currently in camera view or preview
+                const inCamera = document.getElementById('camera-view').style.display === 'flex';
+                const inPreview = document.getElementById('preview-view').style.display === 'flex';
+                // Only activate if we are essentially "waiting" (e.g. Home screen) or just abandonned
+                // Actually, let's allow it everywhere but reset if active
+                
+                const attractEl = document.getElementById('attract-screen');
+                if (attractEl.style.display === 'flex') return;
+                
+                attractEl.style.display = 'flex';
+                cycleAttractImages();
+                attractImageInterval = setInterval(cycleAttractImages, 4000);
+            }
+
+            function stopAttractMode() {
+                const attractEl = document.getElementById('attract-screen');
+                attractEl.style.display = 'none';
+                clearInterval(attractImageInterval);
+            }
+
+            function cycleAttractImages() {
+                const gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
+                const imgEl = document.getElementById('attract-img');
+                
+                if (gallery.length > 0) {
+                    const rand = gallery[Math.floor(Math.random() * gallery.length)];
+                    imgEl.style.opacity = 0;
+                    setTimeout(() => {
+                        imgEl.src = rand;
+                        imgEl.style.opacity = 0.6; 
+                    }, 500); // Wait for fade out
+                } else {
+                    // Fallback if empty gallery
+                    imgEl.src = "";
+                    imgEl.style.opacity = 0;
+                }
+            }
+
+            // Attract Mode Events
+            ['mousemove', 'mousedown', 'touchstart', 'keypress'].forEach(evt => {
+                document.addEventListener(evt, resetIdleTimer);
+            });
+            
+
             function playBeep() {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const osc = audioCtx.createOscillator();
@@ -967,11 +1093,9 @@
                 osc.start(t); osc.stop(t + 0.04);
             }
 
-            // NEW: Startup "Boot" Sound
             function playStartupSound() {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const t = audioCtx.currentTime;
-                // An ascending major chord sweep (C4 - E4 - G4 - C5)
                 const notes = [261.63, 329.63, 392.00, 523.25];
                 notes.forEach((freq, i) => {
                     const osc = audioCtx.createOscillator();
@@ -1020,6 +1144,9 @@
             const closeSettingsBtn = document.getElementById('close-settings-btn');
             const driverModeSelect = document.getElementById('driver-mode-select');
             
+            // Stats Elements
+            const resetStatsBtn = document.getElementById('reset-stats-btn');
+
             const lgModal = document.getElementById('layout-generator-modal');
             const openLgBtn = document.getElementById('open-layout-gen-btn');
             const lgCancelBtn = document.getElementById('lg-cancel-btn');
@@ -1129,7 +1256,10 @@
             let countdownInterval = null;
             let retakeIndex = null; 
             const TARGET_ASPECT_RATIO = 16 / 9; 
-            let numPhotosToTake = 4; 
+            
+            // CHANGED: Default to 1 photo (was 4)
+            let numPhotosToTake = 1; 
+            
             let templateOverlayEnabled = false;
             let aiBlurEnabled = false;
             let flashEnabled = false; 
@@ -1175,7 +1305,8 @@
                             updateTemplateImageData(img);
                             analyzeTemplateHoles(); 
                             photoSlots = JSON.parse(savedSlots);
-                            numPhotosToTake = parseInt(savedCount) || 4;
+                            // CHANGED: Fallback to 1 if parsing fails
+                            numPhotosToTake = parseInt(savedCount) || 1;
                             photoCountSelect.value = numPhotosToTake;
                             fileNameEl.textContent = "Restored previous session.";
                             startBtn.style.display = 'block';
@@ -1199,55 +1330,36 @@
                 } catch (e) { console.log("Storage save error", e); }
             }
             
-            // NEW: Delete from Gallery Logic with Undo Support
             function deleteFromGallery(index) {
                 try {
                     let gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
-                    
-                    // Save state for undo
                     lastDeletedPhoto = gallery[index];
                     lastDeletedIndex = index;
-
-                    // Remove item
                     gallery.splice(index, 1);
                     localStorage.setItem('pb_gallery', JSON.stringify(gallery));
-                    
                     renderGallery();
-                    
-                    // Show notification with Undo option
                     showNotification("Photo Deleted", null, 'undo'); 
                 } catch (e) {
                     console.error("Delete failed", e);
                 }
             }
 
-            // NEW: Undo Logic
             function undoLastDelete() {
                 if (!lastDeletedPhoto || lastDeletedIndex === -1) return;
-
                 try {
                     let gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
-                    
-                    // Restore item
                     gallery.splice(lastDeletedIndex, 0, lastDeletedPhoto);
                     localStorage.setItem('pb_gallery', JSON.stringify(gallery));
-                    
                     renderGallery();
-                    
-                    // Reset Undo State
                     lastDeletedPhoto = null;
                     lastDeletedIndex = -1;
-
-                    // Show success
                     showNotification("Photo Restored");
                 } catch(e) { console.error("Undo failed", e); }
             }
 
-            // NEW: Delete All Logic
             galleryDeleteAllBtn.addEventListener('click', () => {
                 confirmMsg.textContent = "Delete ALL photos? This cannot be undone.";
                 confirmModal.style.display = 'flex';
-                
                 onConfirmAction = () => {
                     localStorage.removeItem('pb_gallery');
                     renderGallery();
@@ -1292,10 +1404,9 @@
                 } catch(e) { return; }
 
                 galleryList.innerHTML = '';
-                // NEW: Toggle "Delete All" button visibility
                 if(gallery.length === 0) {
                     galleryList.innerHTML = '<div class="gallery-empty">No photos saved yet.</div>';
-                    galleryDeleteAllBtn.style.display = 'none'; // Hide when empty
+                    galleryDeleteAllBtn.style.display = 'none'; 
                     return;
                 } else {
                     galleryDeleteAllBtn.style.display = 'block';
@@ -1440,13 +1551,12 @@
 
                 sessionStorage.setItem('pb_auth_user', user);
                 updateUserDisplay();
+                resetIdleTimer(); // Start tracking for attract mode
                 
-                // NEW: Play Startup Sound
                 playStartupSound();
 
                 loginPassInput.value = "";
                 
-                // NEW: Randomized "Hype" Messages
                 const phrases = [
                     "Time to shine,",
                     "Let's make magic,",
@@ -1456,7 +1566,6 @@
                 ];
                 const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
                 
-                // --- Typewriter Logic ---
                 welcomeMsg.innerHTML = '<span id="type-text" class="typing-cursor"></span><br><span id="name-text"></span>';
                 welcomeOverlay.style.display = "flex";
                 
@@ -1468,34 +1577,26 @@
                     if (i < randomPhrase.length) {
                         typeEl.textContent += randomPhrase.charAt(i);
                         i++;
-                        setTimeout(typeWriter, 50); // Typing speed
+                        setTimeout(typeWriter, 50); 
                     } else {
-                        // Remove cursor after typing
                         typeEl.classList.remove('typing-cursor');
-                        // Pop in the name
                         nameEl.innerHTML = user;
                         nameEl.className = 'name-pop';
-                        
-                        // Start Exit Sequence
                         setTimeout(triggerCurtainReveal, 1000);
                     }
                 }
-                
-                // Start typing after a short delay
                 setTimeout(typeWriter, 300);
 
                 function triggerCurtainReveal() {
                     showView('template'); 
-                    // NEW: Curtain Reveal (Slide Up)
                     requestAnimationFrame(() => {
                         welcomeOverlay.style.transform = "translateY(-100%)";
                     });
 
                     setTimeout(() => {
                         welcomeOverlay.style.display = "none";
-                        // Reset properties for next login
                         welcomeOverlay.style.transform = ""; 
-                    }, 800); // Matches CSS transition time
+                    }, 800); 
                 }
             }
 
@@ -1509,39 +1610,28 @@
                 const user = sessionStorage.getItem('pb_auth_user');
                 if (user) {
                     updateUserDisplay();
-                    showView('template'); 
+                    showView('template');
+                    resetIdleTimer(); 
                 } else {
                     showView('login');
                 }
             }
 
-            // NEW: Logout Logic with Animation & Cleanup
             function performLogout() {
-                // Removed playPowerDownSound() call here
-                
-                // 1. Trigger Visual Animation on Body
                 document.body.classList.add('powering-down');
-
-                // 2. Wait for animation
                 setTimeout(() => {
-                    // 3. Clear Session Data
                     sessionStorage.removeItem('pb_auth_user');
-                    
-                    // 4. Clean up current photo session (Privacy)
                     capturedPhotos = [];
                     photoCount = 0;
                     photoSlots = [];
                     templateImage.src = "";
                     fileNameEl.textContent = "";
                     startBtn.style.display = 'none';
-
-                    // 5. Reset UI
                     settingsModal.style.display = 'none';
-                    document.body.classList.remove('powering-down'); // Reset anim class
-                    
-                    // 6. Go to Login
+                    document.body.classList.remove('powering-down'); 
                     showView('login');
-                }, 600); // Wait slightly longer than animation (0.55s)
+                    clearTimeout(idleTimeout); // Stop attract mode timer
+                }, 600); 
             }
 
             loginBtn.addEventListener('click', handleLogin);
@@ -1552,17 +1642,30 @@
 
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', () => {
-                    // NEW: Confirmation before logout
                     confirmMsg.textContent = "Are you sure you want to logout?";
                     confirmModal.style.display = 'flex';
-                    
                     onConfirmAction = () => {
                         performLogout();
                     };
                 });
             }
 
-            settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
+            // Stats Logic Hooked into Reset Button
+            resetStatsBtn.addEventListener('click', () => {
+                confirmMsg.textContent = "Reset all statistics? This cannot be undone.";
+                confirmModal.style.display = 'flex';
+                onConfirmAction = () => {
+                    stats = { photos: 0, sessions: 0, prints: 0 };
+                    saveStats();
+                    showNotification("Stats Reset");
+                };
+            });
+
+            settingsBtn.addEventListener('click', () => { 
+                updateStatsUI(); // Update UI when opening
+                settingsModal.style.display = 'flex'; 
+            });
+            
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
                 if (views.camera.style.display === 'flex') {
@@ -1725,14 +1828,12 @@
                 photoCountSelect.value = numPhotosToTake; return canvas.toDataURL('image/png');
             }
 
-            // UPDATED: Notification logic with Undo support
             function showNotification(msg, imageUrl = null, type = 'success') {
                 if (type !== 'error') playSuccessSound();
 
                 notificationText.textContent = msg;
                 
-                // Styling
-                if (type === 'error' || type === true) { // handle legacy 'true' for isError
+                if (type === 'error' || type === true) { 
                     notificationToast.classList.add('error');
                     toastViewBtn.style.display = 'none';
                     toastUndoBtn.style.display = 'none';
@@ -1843,7 +1944,15 @@
                 showView('mapping'); 
             });
             
-            startNoTemplateBtn.addEventListener('click', () => { useTemplate = false; showView('camera'); startCamera(); });
+            // CHANGED: Force 1 shot when starting Freestyle
+            startNoTemplateBtn.addEventListener('click', () => { 
+                useTemplate = false; 
+                numPhotosToTake = 1;
+                photoCountSelect.value = 1; // Sync Settings UI
+                showView('camera'); 
+                startCamera(); 
+            });
+
             filterSelect.addEventListener('change', () => { const filter = filterSelect.value; videoEl.style.filter = filter; aiCanvas.style.filter = filter; document.getElementById('photo-preview-overlay').style.filter = filter; });
             toggleOverlayBtn.addEventListener('click', () => { templateOverlayEnabled = !templateOverlayEnabled; toggleOverlayBtn.classList.toggle('active'); liveTemplateImg.style.display = templateOverlayEnabled && useTemplate ? 'block' : 'none'; });
 
@@ -2401,6 +2510,11 @@
                 const scaleX = mirrorToggle.checked ? -1.1 : 1.1;
                 photoPreviewEl.style.transform = `translate(-50%, -50%) scale(${scaleX}, 1.1) rotate(${randomTilt}deg)`; 
                 photoPreviewEl.classList.add('show-preview');
+
+                // Stats: Update Photos Taken
+                stats.photos++;
+                saveStats();
+
                 setTimeout(() => { 
                     photoPreviewEl.classList.remove('show-preview'); photoPreviewEl.style.transform = ''; photoPreviewEl.src = ''; isCountingDown = false;
                     renderCapturedThumbnails(); 
@@ -2436,6 +2550,11 @@
             
             function finalizeDraw() {
                 saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.60));
+                
+                // Stats: Update Sessions Completed
+                stats.sessions++;
+                saveStats();
+
                 remapBtn.style.display = useTemplate ? 'block' : 'none'; 
                 cameraControls.classList.remove('controls-hidden');
                 closePreviewBtn.style.display = 'none'; 
@@ -2537,6 +2656,10 @@
             startMappedBtn.addEventListener('click', () => { if (photoSlots.length === numPhotosToTake) { saveState(); showView('camera'); startCamera(); } });
             
             printBtn.addEventListener('click', () => {
+                // Stats: Update Prints
+                stats.prints++;
+                saveStats();
+
                 const oldFrame = document.getElementById('print-iframe');
                 if (oldFrame) document.body.removeChild(oldFrame);
                 const iframe = document.createElement('iframe');
