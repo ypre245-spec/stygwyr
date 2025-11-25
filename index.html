@@ -14,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
-    <!-- Removed MediaPipe Hands script -->
 
     <style>
         /* General Setup */
@@ -58,15 +57,12 @@
             width: 90%;
             max-width: 350px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            /* MOVED animation to .initial-slide class to prevent replay bug */
         }
         
-        /* NEW: Dedicated Entry Animation Class */
         .login-container.initial-slide {
             animation: slide-up 0.6s ease-out;
         }
         
-        /* NEW: Shake Animation for Error */
         .login-container.error-shake {
             animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
             border-color: #ff4d4d;
@@ -128,18 +124,36 @@
             display: none;
             align-items: center; justify-content: center;
             z-index: 1000;
+            /* CHANGED: For Curtain Reveal Effect */
+            transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
         }
         .welcome-content { text-align: center; }
         #welcome-icon { font-size: 4em; margin-bottom: 20px; animation: wave 1.5s infinite; display: inline-block; }
+        
+        /* UPDATED: Container for Typed Text */
         #welcome-msg { 
             font-size: 2em; font-weight: 300; color: white; 
-            opacity: 0; transform: translateY(20px);
-            animation: fade-up-text 0.8s forwards 0.2s;
+            min-height: 1.2em; /* Reserve space */
         }
-        .highlight-name { font-weight: 700; color: #4a90e2; }
+        
+        /* NEW: Typewriter Cursor */
+        .typing-cursor::after {
+            content: '|';
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
+        /* NEW: Name Pop Animation */
+        .name-pop {
+            display: inline-block;
+            font-weight: 700; color: #4a90e2;
+            opacity: 0;
+            transform: scale(0.5);
+            animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes pop-in { to { opacity: 1; transform: scale(1); } }
+        
         @keyframes wave { 0% { transform: rotate(0deg); } 10% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 30% { transform: rotate(14deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } 60% { transform: rotate(0deg); } 100% { transform: rotate(0deg); } }
-        @keyframes fade-up-text { to { opacity: 1; transform: translateY(0); } }
 
 
         /* --- HOME SCREEN UI --- */
@@ -161,17 +175,15 @@
 
         /* Settings Icon */
         .settings-btn {
-            position: fixed; /* CHANGED from absolute to fixed so it floats over scroll */
+            position: fixed;
             top: 20px; right: 20px;
             background: rgba(255,255,255,0.1); border: none; border-radius: 50%;
             width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
             cursor: pointer; color: white; transition: background 0.2s; z-index: 100;
-            backdrop-filter: blur(5px); /* Added blur for better visibility over content */
+            backdrop-filter: blur(5px);
             border: 1px solid rgba(255,255,255,0.1);
         }
         .settings-btn:hover { background: rgba(255,255,255,0.2); }
-        
-        /* Updated SVG styling for filled icon */
         .settings-btn svg { width: 24px; height: 24px; fill: white; }
 
         /* Cards Layout */
@@ -223,6 +235,11 @@
             display: none; align-items: center; justify-content: center;
             backdrop-filter: blur(5px);
         }
+
+        #confirm-modal {
+            z-index: 300 !important;
+        }
+
         .modal-content {
             background: #252525; padding: 25px; border-radius: 16px;
             width: 90%; max-width: 400px; color: white; box-shadow: var(--shadow);
@@ -231,14 +248,13 @@
         .modal-header { font-size: 1.2em; font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         .modal-row { display: flex; justify-content: space-between; align-items: center; }
         
-        /* UPDATED: Modal Footer for Split Buttons */
         .modal-footer { 
             display: flex; 
-            justify-content: space-between; /* Split logout and done */
+            justify-content: space-between; 
             align-items: center;
             gap: 10px; 
-            margin-top: 20px; /* Increased margin */
-            border-top: 1px solid #333; /* Visual separation */
+            margin-top: 20px;
+            border-top: 1px solid #333; 
             padding-top: 15px;
         }
         
@@ -289,7 +305,6 @@
         /* CAMERA VIEW - IMMERSIVE LAYOUT */
         #camera-view {
             display: none;
-            /* Flex removed to allow absolute positioning for full screen */
             background: black;
         }
 
@@ -311,7 +326,6 @@
         .icon-btn:hover { background: rgba(80, 80, 80, 0.8); }
         .icon-btn.active { background: var(--brand-color); border-color: var(--brand-color); opacity: 0.9; }
         
-        /* Video Container - FULL SCREEN */
         #video-container { 
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -320,7 +334,6 @@
             overflow: hidden; 
         }
 
-        /* Controls Bottom Bar */
         #camera-bottom-bar {
             position: absolute; /* Overlay */
             bottom: 0; left: 0;
@@ -354,11 +367,8 @@
         .control-btn-small.active { background: var(--brand-color); border-color: var(--brand-color); }
         .toggle-label { font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; color: white; user-select: none; text-shadow: 0 1px 3px black; }
 
-        /* Camera Overlays */
-        /* object-fit: cover ensures full screen (no black bars), but crops edges */
         #video-preview, #ai-canvas { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; transition: opacity 0.2s; }
         
-        /* Grid Overlay */
         #grid-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: none;
         }
@@ -398,56 +408,26 @@
         #photo-preview-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); max-width: 90vw; max-height: 90vh; display: none; object-fit: contain; z-index: 30; border-radius: 12px; opacity: 0; transition: transform 0.2s, opacity 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         #photo-preview-overlay.show-preview { display: block; opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 
-        /* NEW: Captured Thumbnails Stack (Moved to Bottom) */
         #captured-thumbnails {
-            position: absolute;
-            top: auto; 
-            bottom: 20px; /* Adjusted: Low enough to be at the bottom, high enough (10px+) to clear edge/scrollbar */
-            left: 0;
-            right: 0;
-            width: 100%;
-            display: flex;
-            flex-direction: row; 
-            justify-content: center;
-            gap: 10px;
-            z-index: 35; 
-            max-height: 130px; 
-            overflow-x: auto; 
-            overflow-y: hidden;
-            padding: 10px; 
-            pointer-events: none; /* Important: Clicks pass through to buttons behind */
+            position: absolute; top: auto; bottom: 20px; left: 0; right: 0; width: 100%;
+            display: flex; flex-direction: row; justify-content: center; gap: 10px;
+            z-index: 35; max-height: 130px; overflow-x: auto; overflow-y: hidden;
+            padding: 10px; pointer-events: none;
         }
         .cap-thumb {
-            width: 130px;
-            height: 95px;
-            object-fit: cover;
-            border: 2px solid rgba(255,255,255,0.7);
-            border-radius: 6px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            background: #000;
-            flex-shrink: 0; 
-            /* New Animation: Slide in from right with snap */
-            animation: thumb-slide-snap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            width: 130px; height: 95px; object-fit: cover; border: 2px solid rgba(255,255,255,0.7);
+            border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); background: #000;
+            flex-shrink: 0; animation: thumb-slide-snap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .cap-thumb.active-retake {
-            border-color: var(--brand-color);
-            transform: scale(1.1);
-            box-shadow: 0 0 10px var(--brand-color);
+            border-color: var(--brand-color); transform: scale(1.1); box-shadow: 0 0 10px var(--brand-color);
         }
         
-        /* New Animation Keyframes */
         @keyframes thumb-slide-snap {
-            0% { 
-                opacity: 0; 
-                transform: translateX(50px) scale(0.8) rotate(5deg); 
-            }
-            100% { 
-                opacity: 1; 
-                transform: translateX(0) scale(1) rotate(0deg); 
-            }
+            0% { opacity: 0; transform: translateX(50px) scale(0.8) rotate(5deg); }
+            100% { opacity: 1; transform: translateX(0) scale(1) rotate(0deg); }
         }
 
-        /* Zoom Slider */
         #zoom-container { display: none; align-items: center; gap: 5px; margin-left: 5px; padding-left: 5px; border-left: 1px solid rgba(255,255,255,0.3); }
         #zoom-slider { width: 80px; accent-color: var(--brand-color); cursor: pointer; }
 
@@ -464,7 +444,6 @@
         #save-btn, #start-mapped-btn, #confirm-adjustment-btn, #confirm-yes, #gallery-btn, #print-btn { background-color: var(--brand-color); }
         #lg-create-btn { background-color: #28a745; }
 
-        /* Gallery Modal (Preview Style) */
         #gallery-modal .modal-content {
             width: 95%; max-width: 1000px; height: 85vh; 
             display: flex; flex-direction: column;
@@ -477,113 +456,114 @@
             align-content: start;
         }
         .gallery-item { 
-            cursor: pointer; 
-            border: 2px solid transparent; 
-            border-radius: 6px; 
-            overflow: hidden; 
-            transition: all 0.2s; 
-            position: relative; 
-            aspect-ratio: 1; /* Forces square thumbnails */
-            background: #000;
+            cursor: pointer; border: 2px solid transparent; border-radius: 6px; 
+            overflow: hidden; transition: all 0.2s; position: relative; 
+            aspect-ratio: 1; background: #000;
         }
         .gallery-item:hover { border-color: var(--brand-color); transform: scale(1.05); z-index: 2; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         .gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .gallery-empty { color: #666; text-align: center; margin-top: 50px; font-style: italic; grid-column: 1 / -1; }
 
-        /* LG Specific */
+        .gallery-delete-btn {
+            position: absolute; top: 5px; right: 5px; width: 24px; height: 24px;
+            background: rgba(220, 53, 69, 0.9); color: white; border: 2px solid white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: bold; line-height: 1; cursor: pointer;
+            opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .gallery-item:hover .gallery-delete-btn { opacity: 1; }
+        @media (hover: none) { .gallery-delete-btn { opacity: 0.8; } }
+        .gallery-delete-btn:hover { transform: scale(1.2); background: #ff0000; }
+
+        @keyframes delete-anim {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        .gallery-item.deleting {
+            animation: delete-anim 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+            pointer-events: none; 
+        }
+
         .lg-preview { width: 100%; height: 150px; background: #111; display: flex; align-items: center; justify-content: center; border: 1px dashed #555; margin-top: 10px; border-radius: 8px; }
         #lg-canvas-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-        /* Keyboard Shortcuts Overlay */
         #kb-shortcuts-overlay { position: absolute; bottom: 10px; right: 10px; color: #555; font-size: 0.7em; pointer-events: none; opacity: 0.5; }
 
-        /* NEW: Flash Overlay */
         #flash-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: white;
-            z-index: 9999; /* On top of everything */
-            opacity: 0;
-            pointer-events: none;
-            display: none;
+            background: white; z-index: 9999; opacity: 0; pointer-events: none; display: none;
         }
         #flash-overlay.flash-active {
-            display: block;
-            animation: flash-anim 0.4s ease-out forwards;
+            display: block; animation: flash-anim 0.4s ease-out forwards;
         }
         @keyframes flash-anim {
             0% { opacity: 1; }
             100% { opacity: 0; }
         }
 
-        /* NEW: Toast Notification */
         #notification-toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: rgba(40, 167, 69, 0.95); /* Green */
-            color: white;
-            padding: 8px 16px 8px 12px; /* Adjusted padding */
-            border-radius: 30px;
-            font-weight: 600;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            z-index: 2000;
-            opacity: 0;
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: rgba(40, 167, 69, 0.95); color: white;
+            padding: 8px 16px 8px 12px; border-radius: 30px; font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 2000; opacity: 0;
             transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s;
-            pointer-events: auto; /* Allow clicking the button */
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.2);
-            font-size: 0.95em;
-            white-space: nowrap;
+            pointer-events: auto; display: flex; align-items: center; gap: 12px;
+            backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.95em; white-space: nowrap;
         }
-        #notification-toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
+        #notification-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #notification-toast.error { background: rgba(220, 53, 69, 0.95); }
         
-        /* NEW: Notification Elements */
         .toast-thumb {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid rgba(255,255,255,0.8);
-            display: none; /* Hidden by default */
+            width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.8); display: none;
         }
         .toast-action {
-            margin-left: 5px;
-            padding: 4px 10px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 0.8em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: background 0.2s;
+            margin-left: 5px; padding: 4px 10px; background: rgba(0,0,0,0.2);
+            border-radius: 12px; cursor: pointer; font-size: 0.8em;
+            text-transform: uppercase; letter-spacing: 0.5px; transition: background 0.2s;
         }
-        .toast-action:hover {
-            background: rgba(0,0,0,0.4);
+        .toast-action:hover { background: rgba(0,0,0,0.4); }
+
+        /* NEW: Undo Button Style */
+        .toast-undo {
+            margin-left: 5px; padding: 4px 10px; background: rgba(255, 255, 255, 0.9);
+            color: #333; border-radius: 12px; cursor: pointer; font-size: 0.8em;
+            text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800;
+            transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
+        .toast-undo:hover { transform: scale(1.05); }
+
+        /* NEW: CRT Power Off Animation Class */
+        body.powering-down {
+            animation: turn-off 0.55s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+            pointer-events: none; /* Prevent clicks during anim */
+        }
+        
+        @keyframes turn-off {
+            0% { transform: scale(1, 1); filter: brightness(1); opacity: 1; }
+            40% { transform: scale(1, 0.002); filter: brightness(2); opacity: 1; }
+            100% { transform: scale(0, 0); filter: brightness(0); opacity: 0; }
+        }
+
     </style>
 </head>
 <body>
 
-    <!-- NEW: Flash Element -->
     <div id="flash-overlay"></div>
 
-    <!-- NEW: Notification Toast -->
     <div id="notification-toast">
         <img id="toast-thumb" class="toast-thumb" alt="" />
         <svg id="toast-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <span id="notification-text">Saved to Device</span>
         <span id="toast-view-btn" class="toast-action">View</span>
+        <!-- NEW: Undo Button -->
+        <span id="toast-undo-btn" class="toast-undo" style="display:none;">UNDO</span>
     </div>
 
-    <!-- NEW: Login View -->
+    <!-- Login View -->
     <div id="login-view" class="view">
-        <!-- Added 'initial-slide' class here -->
         <div class="login-container initial-slide" id="login-card">
             <div class="login-logo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -600,7 +580,6 @@
         </div>
     </div>
 
-    <!-- MOVED: Welcome Overlay is now a direct child of body (Global Overlay) -->
     <div id="welcome-overlay">
         <div class="welcome-content">
             <div id="welcome-icon">👋</div>
@@ -614,7 +593,6 @@
             <div class="modal-header">Settings</div>
             
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
-                <!-- Added missing element -->
                 <div id="user-info-display" style="font-weight:bold; color:var(--brand-color); margin-bottom: 10px;">
                     Logged in as: Guest
                 </div>
@@ -625,7 +603,6 @@
                 </select>
             </div>
             
-            <!-- NEW: Driver Compatibility Selector -->
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
                 <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Driver / Resolution Fix</label>
                 <select id="driver-mode-select" style="width:100%;">
@@ -640,17 +617,15 @@
             <div class="modal-row" style="flex-direction:column; align-items:flex-start;">
                 <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Manual Photo Count</label>
                 <select id="photo-count-select" style="width:100%;">
-                    <option value="1">1 Photo</option>
+                    <option value="1"selected>1 Photo</option>
                     <option value="2">2 Photos</option>
                     <option value="3">3 Photos</option>
-                    <option value="4" selected>4 Photos</option>
+                    <option value="4">4 Photos</option>
                     <option value="5">5 Photos</option>
                     <option value="6">6 Photos</option>
                     <option value="8">8 Photos</option>
                 </select>
             </div>
-
-            <!-- MOVED: Logout Button is now in the footer -->
 
             <div class="modal-footer">
                 <button id="logout-btn" class="btn" style="background-color: transparent; border: 1px solid #dc3545; color: #dc3545; padding: 8px 15px; font-size: 0.9em;">Logout</button>
@@ -716,6 +691,8 @@
                 <div class="gallery-empty">No photos yet</div>
             </div>
             <div class="modal-footer">
+                <!-- NEW: Delete All Button -->
+                <button id="gallery-delete-all-btn" class="btn" style="background-color: transparent; border: 1px solid #dc3545; color: #dc3545;">Delete All</button>
                 <button id="gallery-close-btn-footer" class="btn">Close</button>
             </div>
         </div>
@@ -724,7 +701,6 @@
     <!-- View 1: Home Screen -->
     <div id="template-view" class="view">
         <button id="settings-btn" class="settings-btn" title="Settings">
-            <!-- UPDATED: Material Design Filled Gear Icon -->
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
                 <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.57,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.08-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
             </svg>
@@ -807,7 +783,6 @@
             <div id="magnifier"></div>
         </div>
         
-        <!-- NEW Rotation & Adjustment Panel -->
         <div id="mapping-controls-panel" class="hidden">
             <div class="control-row">
                 <span id="slot-info-label" class="info-pill">Slot #1</span>
@@ -825,7 +800,6 @@
         </div>
 
         <div class="button-group">
-            <!-- confirm and delete moved into panel above -->
             <button id="change-template-btn" class="btn">Back</button> 
             <button id="reset-mapping-btn" class="btn">Reset</button>
             <button id="undo-btn" class="btn">Undo</button>
@@ -858,9 +832,6 @@
             <div id="crop-frame-overlay"></div>
             <img id="photo-preview-overlay" /> 
             <div id="photo-counter-overlay">0 / 4</div>
-            
-            <!-- MOVED: Thumbnails removed from here -->
-
             <div id="countdown-overlay"></div>
         </div>
         <div id="camera-bottom-bar">
@@ -880,14 +851,13 @@
                     <option value="grayscale(1) contrast(1.5) brightness(0.9)">Dramatic</option>
                 </select>
                 
-                <!-- NEW: Flash Toggle Button -->
                 <button id="toggle-flash-btn" class="control-btn-small" title="Toggle Screen Flash">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                 </button>
 
                 <button id="toggle-ai-blur-btn" class="control-btn-small" title="AI Portrait Mode"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></button>
                 <button id="toggle-grid-btn" class="control-btn-small" title="Rule of Thirds Grid"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg></button>
-                <!-- Removed Gesture Button -->
+                
                 <div id="zoom-container">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
                     <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" title="Zoom">
@@ -898,7 +868,6 @@
             <button id="capture-btn" title="Press Spacebar"></button>
         </div>
 
-        <!-- NEW LOCATION: Placed here to sit ON TOP of the bottom bar gradient -->
         <div id="captured-thumbnails"></div>
     </div>
 
@@ -915,14 +884,14 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Print
             </button>
             <button id="save-btn" class="btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download</button>
-            <button id="retake-btn" class="btn">Retake All</button>
             
-            <!-- NEW: Home Button (Start New Session) -->
+            <!-- CHANGED: Renamed from "Retake All" to "Retake Session" -->
+            <button id="retake-btn" class="btn">Retake Session</button>
+            
             <button id="home-btn" class="btn" style="background-color: #6c757d;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> New Session
             </button>
 
-            <!-- Close button only for Gallery View Mode -->
             <button id="close-preview-btn" class="btn" style="background-color: #6c757d; display: none;">Close</button>
         </div>
     </div>
@@ -931,11 +900,8 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- VERSION CONTROL ---
-            // Bump this version number whenever you update logic to force a reset of localStorage
-            const APP_VERSION = '1.2'; 
+            const APP_VERSION = '1.3'; 
 
-            // --- AUDIO SETUP ---
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             let audioCtx = new AudioContext();
 
@@ -970,59 +936,58 @@
                 osc2.start(t); osc2.stop(t + 0.4);
             }
             
-            // NEW: Success Sound (Cheery Chime)
             function playSuccessSound() {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const t = audioCtx.currentTime;
-                
-                // Play a simple major triad arpeggio (C - E - G) very quickly
-                const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-                
+                const notes = [523.25, 659.25, 783.99]; 
                 notes.forEach((freq, i) => {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
                     osc.connect(gain); gain.connect(audioCtx.destination);
-                    
-                    osc.type = 'sine';
-                    osc.frequency.value = freq;
-                    
-                    const startTime = t + (i * 0.05); // Stagger start times
+                    osc.type = 'sine'; osc.frequency.value = freq;
+                    const startTime = t + (i * 0.05); 
                     gain.gain.setValueAtTime(0, startTime);
                     gain.gain.linearRampToValueAtTime(0.1, startTime + 0.02);
                     gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
-                    
-                    osc.start(startTime);
-                    osc.stop(startTime + 0.4);
+                    osc.start(startTime); osc.stop(startTime + 0.4);
                 });
             }
 
-            // MODIFIED: Haptic-Style Feedback (Short Low-Freq Thud)
             function playKeyClick() {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const t = audioCtx.currentTime;
-
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.connect(gain); 
-                gain.connect(audioCtx.destination);
-                
-                // Haptics use low frequency sine waves (like a vibration motor)
+                osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.type = 'sine'; 
-                
-                // Quick pitch drop to simulate the "kick" of a motor
                 osc.frequency.setValueAtTime(150, t);
                 osc.frequency.exponentialRampToValueAtTime(40, t + 0.03);
-                
-                // Very short envelope (tight thud)
-                // INCREASED VOLUME: Changed from 0.3 to 0.8
                 gain.gain.setValueAtTime(0.8, t);
                 gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-                
-                osc.start(t); 
-                osc.stop(t + 0.04);
+                osc.start(t); osc.stop(t + 0.04);
             }
 
-            // --- DOM Elements ---
+            // NEW: Startup "Boot" Sound
+            function playStartupSound() {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const t = audioCtx.currentTime;
+                // An ascending major chord sweep (C4 - E4 - G4 - C5)
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'triangle'; 
+                    osc.frequency.value = freq;
+                    const startTime = t + (i * 0.1); 
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.6);
+                });
+            }
+
             const views = {
                 login: document.getElementById('login-view'),
                 template: document.getElementById('template-view'),
@@ -1041,7 +1006,6 @@
             const qsStripBtn = document.getElementById('qs-strip-btn');
             const qsGridBtn = document.getElementById('qs-grid-btn');
 
-            // Login Elements
             const loginCard = document.getElementById('login-card');
             const loginPassInput = document.getElementById('login-password');
             const loginBtn = document.getElementById('login-btn');
@@ -1051,12 +1015,9 @@
             const logoutBtn = document.getElementById('logout-btn');
             const userInfoDisplay = document.getElementById('user-info-display');
 
-            // Settings & Layout Gen
             const settingsModal = document.getElementById('settings-modal');
             const settingsBtn = document.getElementById('settings-btn');
             const closeSettingsBtn = document.getElementById('close-settings-btn');
-            
-            // NEW: Driver Mode Select
             const driverModeSelect = document.getElementById('driver-mode-select');
             
             const lgModal = document.getElementById('layout-generator-modal');
@@ -1072,7 +1033,6 @@
                 color: document.getElementById('lg-color')
             };
 
-            // Mapping
             const mappingCanvas = document.getElementById('mapping-canvas');
             const mappingCtx = mappingCanvas.getContext('2d');
             const magnifier = document.getElementById('magnifier');
@@ -1082,7 +1042,6 @@
             const startMappedBtn = document.getElementById('start-mapped-btn');
             const undoBtn = document.getElementById('undo-btn');
             
-            // Updated Selection Elements
             const deleteSlotBtn = document.getElementById('delete-slot-btn');
             const mappingControlsPanel = document.getElementById('mapping-controls-panel');
             const slotInfoLabel = document.getElementById('slot-info-label');
@@ -1093,13 +1052,11 @@
             const rotCW = document.getElementById('rot-cw');
             const confirmAdjustmentBtn = document.getElementById('confirm-adjustment-btn');
             
-            // Tools
             const toolRect = document.getElementById('tool-rect');
             const toolCircle = document.getElementById('tool-circle');
             const toolSnap = document.getElementById('tool-snap');
             const toolRatio = document.getElementById('tool-ratio');
 
-            // Camera & Preview
             const cameraView = document.getElementById('camera-view'); 
             const cameraControls = document.getElementById('camera-controls');
             const videoEl = document.getElementById('video-preview');
@@ -1115,16 +1072,12 @@
             const timerSelect = document.getElementById('timer-select');
             const mirrorToggle = document.getElementById('mirror-toggle');
             const toggleAiBlurBtn = document.getElementById('toggle-ai-blur-btn');
-            
-            // NEW: Flash Button Element
             const toggleFlashBtn = document.getElementById('toggle-flash-btn');
 
             const toggleOverlayBtn = document.getElementById('toggle-template-overlay-btn');
             const toggleGridBtn = document.getElementById('toggle-grid-btn');
-            // Removed toggleGestureBtn
             const zoomSlider = document.getElementById('zoom-slider');
             const zoomContainer = document.getElementById('zoom-container');
-            
             const gridOverlay = document.getElementById('grid-overlay');
 
             const mergeCanvas = document.getElementById('merge-canvas');
@@ -1133,41 +1086,39 @@
             const saveBtn = document.getElementById('save-btn');
             const remapBtn = document.getElementById('remap-btn'); 
             const printBtn = document.getElementById('print-btn');
-            
-            // NEW: Home Button
             const homeBtn = document.getElementById('home-btn');
             const closePreviewBtn = document.getElementById('close-preview-btn');
 
-            // Gallery (Converted to Modal)
             const galleryBtn = document.getElementById('gallery-btn');
             const galleryModal = document.getElementById('gallery-modal');
             const closeGalleryBtn = document.getElementById('close-gallery-btn');
             const galleryCloseBtnFooter = document.getElementById('gallery-close-btn-footer');
             const galleryList = document.getElementById('gallery-list');
+            const galleryDeleteAllBtn = document.getElementById('gallery-delete-all-btn');
 
-            // NEW: Thumbnail Container
             const capturedThumbnailsEl = document.getElementById('captured-thumbnails');
-
             const captureCanvas = document.getElementById('capture-canvas');
             const captureCtx = captureCanvas.getContext('2d');
-
-            // NEW: Flash Element
             const flashOverlay = document.getElementById('flash-overlay');
             
-            // NEW: Notification Element
             const notificationToast = document.getElementById('notification-toast');
             const notificationText = document.getElementById('notification-text');
             const toastThumb = document.getElementById('toast-thumb');
             const toastIcon = document.getElementById('toast-icon');
             const toastViewBtn = document.getElementById('toast-view-btn');
+            const toastUndoBtn = document.getElementById('toast-undo-btn');
 
             const confirmModal = document.getElementById('confirm-modal');
             const confirmMsg = document.getElementById('confirm-msg');
             const confirmYes = document.getElementById('confirm-yes');
             const confirmNo = document.getElementById('confirm-no');
-            let pendingRetakeIndex = null;
+            
+            let onConfirmAction = null; 
 
-            // --- State Variables ---
+            // Undo State
+            let lastDeletedPhoto = null;
+            let lastDeletedIndex = -1;
+
             let stream = null;
             let videoTrack = null;
             let templateImage = new Image();
@@ -1181,20 +1132,19 @@
             let numPhotosToTake = 4; 
             let templateOverlayEnabled = false;
             let aiBlurEnabled = false;
-            let flashEnabled = false; // NEW: State variable for flash
+            let flashEnabled = false; 
             
-            // Removed gestureEnabled, handsDetector, gestureDebounce
             let selfieSegmentation = null;
             let animationFrameId = null;
             let isCountingDown = false;
-            let isQuickStart = false; // New flag for navigation history
+            let isQuickStart = false; 
             let gestureDebounce = 0;
             
-            let lastUsedDriverMode = null; // NEW: Track mode to force restart if changed
+            let lastUsedDriverMode = null; 
             let photoSlots = []; 
-            let detectedHoles = []; // Store background snap targets
+            let detectedHoles = []; 
             let undoStack = []; 
-            let returnToGallery = false; // NEW: Flag to track navigation context
+            let returnToGallery = false; 
             let mappingState = { 
                 selectedIndex: -1, drawingShape: 'rect', aspectRatio: null, snapEnabled: true,
                 isCreating: false, startX: 0, startY: 0, tempX: 0, tempY: 0,
@@ -1202,21 +1152,16 @@
                 initialPinchDist: null, initialPinchAngle: null, baseWidth: 0, baseHeight: 0, baseCenterX: 0, baseCenterY: 0
             };
             
-            // --- Persistence ---
             function loadState() {
                 try {
-                    // 1. Check Version Compatibility
                     const savedVersion = localStorage.getItem('pb_version');
-                    
                     if (savedVersion !== APP_VERSION) {
-                        console.log("New version detected. Clearing old session data.");
-                        // Clear specific keys to avoid wiping other unrelated site data
                         localStorage.removeItem('pb_template');
                         localStorage.removeItem('pb_slots');
                         localStorage.removeItem('pb_count');
-                        localStorage.setItem('pb_version', APP_VERSION); // Update to new version
-                        renderGallery(); // Gallery is session-based anyway, but safe to keep
-                        return; // Stop loading old state
+                        localStorage.setItem('pb_version', APP_VERSION); 
+                        renderGallery(); 
+                        return; 
                     }
 
                     const savedTemplate = localStorage.getItem('pb_template');
@@ -1228,7 +1173,7 @@
                         img.onload = () => {
                             templateImage = img;
                             updateTemplateImageData(img);
-                            analyzeTemplateHoles(); // Find snap targets
+                            analyzeTemplateHoles(); 
                             photoSlots = JSON.parse(savedSlots);
                             numPhotosToTake = parseInt(savedCount) || 4;
                             photoCountSelect.value = numPhotosToTake;
@@ -1238,7 +1183,6 @@
                         };
                         img.src = savedTemplate;
                     }
-                    // Load Gallery
                     renderGallery();
                 } catch (e) { console.log("Storage load failed", e); }
             }
@@ -1250,42 +1194,90 @@
                         localStorage.setItem('pb_template', templateImage.src);
                         localStorage.setItem('pb_slots', JSON.stringify(photoSlots));
                         localStorage.setItem('pb_count', numPhotosToTake);
-                        localStorage.setItem('pb_version', APP_VERSION); // Save current version
+                        localStorage.setItem('pb_version', APP_VERSION); 
                     }
                 } catch (e) { console.log("Storage save error", e); }
             }
             
+            // NEW: Delete from Gallery Logic with Undo Support
+            function deleteFromGallery(index) {
+                try {
+                    let gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
+                    
+                    // Save state for undo
+                    lastDeletedPhoto = gallery[index];
+                    lastDeletedIndex = index;
+
+                    // Remove item
+                    gallery.splice(index, 1);
+                    localStorage.setItem('pb_gallery', JSON.stringify(gallery));
+                    
+                    renderGallery();
+                    
+                    // Show notification with Undo option
+                    showNotification("Photo Deleted", null, 'undo'); 
+                } catch (e) {
+                    console.error("Delete failed", e);
+                }
+            }
+
+            // NEW: Undo Logic
+            function undoLastDelete() {
+                if (!lastDeletedPhoto || lastDeletedIndex === -1) return;
+
+                try {
+                    let gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
+                    
+                    // Restore item
+                    gallery.splice(lastDeletedIndex, 0, lastDeletedPhoto);
+                    localStorage.setItem('pb_gallery', JSON.stringify(gallery));
+                    
+                    renderGallery();
+                    
+                    // Reset Undo State
+                    lastDeletedPhoto = null;
+                    lastDeletedIndex = -1;
+
+                    // Show success
+                    showNotification("Photo Restored");
+                } catch(e) { console.error("Undo failed", e); }
+            }
+
+            // NEW: Delete All Logic
+            galleryDeleteAllBtn.addEventListener('click', () => {
+                confirmMsg.textContent = "Delete ALL photos? This cannot be undone.";
+                confirmModal.style.display = 'flex';
+                
+                onConfirmAction = () => {
+                    localStorage.removeItem('pb_gallery');
+                    renderGallery();
+                    showNotification("Gallery Cleared", null, true);
+                };
+            });
+
             function saveToGallery(dataUrl) {
                 let gallery = [];
                 try {
-                    // CHANGED: Switched to localStorage so photos persist after closing browser
                     gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
                 } catch (e) { gallery = []; }
 
-                // Add new image
                 gallery.unshift(dataUrl);
-
-                // Prune if > 20 items hard limit (to prevent huge JSON parsing lag)
-                if (gallery.length > 20) gallery.length = 20;
+                if (gallery.length > 15) gallery.length = 15;
 
                 let saved = false;
                 while (!saved && gallery.length > 0) {
                     try {
-                        // CHANGED: Switched to localStorage
                         localStorage.setItem('pb_gallery', JSON.stringify(gallery));
                         saved = true;
                     } catch (e) {
-                        // If quota exceeded, remove the OLDEST image (last in array)
                         if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                            // If we only have 1 item and it still fails, we can't save it.
                             if (gallery.length > 1) {
-                                gallery.pop(); // Remove oldest
+                                gallery.pop(); 
                             } else {
-                                console.warn("Storage full: Image too large to save even as single item.");
+                                showNotification("Gallery Full", null, true); 
                                 break; 
                             }
                         } else {
-                            console.error("Storage error:", e);
                             break;
                         }
                     }
@@ -1294,19 +1286,48 @@
             }
             
             function renderGallery() {
-                // CHANGED: Retrieve from localStorage
-                const gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
+                let gallery = [];
+                try {
+                     gallery = JSON.parse(localStorage.getItem('pb_gallery') || '[]');
+                } catch(e) { return; }
+
                 galleryList.innerHTML = '';
+                // NEW: Toggle "Delete All" button visibility
                 if(gallery.length === 0) {
-                    galleryList.innerHTML = '<div class="gallery-empty">No photos in this session yet.</div>';
+                    galleryList.innerHTML = '<div class="gallery-empty">No photos saved yet.</div>';
+                    galleryDeleteAllBtn.style.display = 'none'; // Hide when empty
                     return;
+                } else {
+                    galleryDeleteAllBtn.style.display = 'block';
                 }
-                gallery.forEach(imgSrc => {
+                
+                gallery.forEach((imgSrc, index) => {
                     const item = document.createElement('div');
                     item.className = 'gallery-item';
+                    
                     const img = document.createElement('img');
                     img.src = imgSrc;
+                    
+                    const deleteBtn = document.createElement('div');
+                    deleteBtn.className = 'gallery-delete-btn';
+                    deleteBtn.innerHTML = '×'; 
+                    deleteBtn.title = 'Delete Photo';
+                    
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation(); 
+                        confirmMsg.textContent = "Delete this photo permanently?";
+                        confirmModal.style.display = 'flex';
+                        onConfirmAction = () => {
+                            item.classList.add('deleting');
+                            setTimeout(() => {
+                                deleteFromGallery(index);
+                            }, 400); 
+                        };
+                    };
+
                     item.appendChild(img);
+                    item.appendChild(deleteBtn);
+
                     item.onclick = () => {
                         const previewImg = new Image();
                         previewImg.onload = () => {
@@ -1314,14 +1335,11 @@
                             mergeCanvas.height = previewImg.height;
                             mergeCtx.drawImage(previewImg, 0, 0);
                             showView('preview');
-                            
-                            // Adjust buttons for Gallery View Mode
                             remapBtn.style.display = 'none'; 
                             galleryModal.style.display = 'none';
                             retakeBtn.style.display = 'none'; 
-                            homeBtn.style.display = 'none'; // Hide "New Session"
-                            closePreviewBtn.style.display = 'inline-flex'; // Show "Close"
-                            
+                            homeBtn.style.display = 'none'; 
+                            closePreviewBtn.style.display = 'inline-flex'; 
                             returnToGallery = true; 
                         };
                         previewImg.src = imgSrc;
@@ -1338,14 +1356,12 @@
                 templateImageData = ctx.getImageData(0, 0, img.width, img.height);
             }
 
-            // --- AI & Gesture Setup ---
             async function initMediaPipe() {
                 if (!selfieSegmentation) {
                     selfieSegmentation = new SelfieSegmentation({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`});
                     selfieSegmentation.setOptions({ modelSelection: 1 }); 
                     selfieSegmentation.onResults(onSelfieResults);
                 }
-                // Removed Hands detector init
             }
 
             function onSelfieResults(results) {
@@ -1358,14 +1374,11 @@
                 aiCtx.restore();
             }
 
-            // Removed onHandsResults function
-
             async function startVideoProcessing() {
                 if (!videoEl.srcObject) return;
                 async function step() { 
                     if (!stream) return;
                     if (aiBlurEnabled) await selfieSegmentation.send({image: videoEl}); 
-                    // Removed handsDetector send
                     animationFrameId = requestAnimationFrame(step); 
                 }
                 await initMediaPipe(); step();
@@ -1378,13 +1391,10 @@
                 if (aiBlurEnabled) startVideoProcessing();
             });
 
-            // NEW: Flash Toggle Logic
             toggleFlashBtn.addEventListener('click', () => {
                 flashEnabled = !flashEnabled;
                 toggleFlashBtn.classList.toggle('active');
             });
-
-            // Removed toggleGestureBtn event listener
 
             toggleGridBtn.addEventListener('click', () => {
                 const isActive = gridOverlay.style.display === 'block';
@@ -1392,7 +1402,6 @@
                 toggleGridBtn.classList.toggle('active', !isActive);
             });
 
-            // NEW: Ensure Mirror Toggle updates preview immediately
             mirrorToggle.addEventListener('change', () => {
                 if(mirrorToggle.checked) { 
                     videoEl.classList.add('mirrored'); 
@@ -1403,7 +1412,6 @@
                 }
             });
 
-            // --- LOGIN LOGIC ---
             function getGreeting() {
                 const h = new Date().getHours();
                 if (h < 12) return "Good Morning";
@@ -1413,12 +1421,7 @@
 
             function handleLogin() {
                 const pass = loginPassInput.value.trim();
-                // "Discreted" (Obfuscated) Passcodes using Base64
-                // Prevents plain text reading of passwords in source code
-                // jrnest.2025 -> anJuZXN0LjIwMjU=
-                // 09208894305247 -> MDkyMDg4OTQzMDUyNDc=
-                
-                const encodedPass = btoa(pass); // Encode user input to match stored values
+                const encodedPass = btoa(pass); 
                 let user = "";
 
                 if (encodedPass === 'anJuZXN0LjIwMjU=') {
@@ -1426,7 +1429,6 @@
                 } else if (encodedPass === 'MDkyMDg4OTQzMDUyNDc=') {
                     user = "Master Dave";
                 } else {
-                    // Error Animation
                     loginCard.classList.add('error-shake');
                     loginError.style.opacity = 1;
                     setTimeout(() => {
@@ -1436,37 +1438,69 @@
                     return;
                 }
 
-                // Save User (Changed to sessionStorage for auto-logout on close)
                 sessionStorage.setItem('pb_auth_user', user);
                 updateUserDisplay();
+                
+                // NEW: Play Startup Sound
+                playStartupSound();
 
-                // Successful Login
                 loginPassInput.value = "";
-                welcomeMsg.innerHTML = `${getGreeting()}, <br><span class="highlight-name">${user}</span>`;
+                
+                // NEW: Randomized "Hype" Messages
+                const phrases = [
+                    "Time to shine,",
+                    "Let's make magic,",
+                    "Camera ready,",
+                    "Looking good,",
+                    "Welcome back,"
+                ];
+                const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+                
+                // --- Typewriter Logic ---
+                welcomeMsg.innerHTML = '<span id="type-text" class="typing-cursor"></span><br><span id="name-text"></span>';
                 welcomeOverlay.style.display = "flex";
                 
-                // Animation sequence
-                setTimeout(() => {
-                    // 1. Switch to the APP view BEHIND the opaque overlay
+                const typeEl = document.getElementById('type-text');
+                const nameEl = document.getElementById('name-text');
+                
+                let i = 0;
+                function typeWriter() {
+                    if (i < randomPhrase.length) {
+                        typeEl.textContent += randomPhrase.charAt(i);
+                        i++;
+                        setTimeout(typeWriter, 50); // Typing speed
+                    } else {
+                        // Remove cursor after typing
+                        typeEl.classList.remove('typing-cursor');
+                        // Pop in the name
+                        nameEl.innerHTML = user;
+                        nameEl.className = 'name-pop';
+                        
+                        // Start Exit Sequence
+                        setTimeout(triggerCurtainReveal, 1000);
+                    }
+                }
+                
+                // Start typing after a short delay
+                setTimeout(typeWriter, 300);
+
+                function triggerCurtainReveal() {
                     showView('template'); 
-                    
-                    // 2. Fade out the overlay to reveal the app
-                    // (Instead of fading out to reveal the login form again)
+                    // NEW: Curtain Reveal (Slide Up)
                     requestAnimationFrame(() => {
-                        welcomeOverlay.style.transition = "opacity 0.5s ease-in-out";
-                        welcomeOverlay.style.opacity = 0;
+                        welcomeOverlay.style.transform = "translateY(-100%)";
                     });
 
                     setTimeout(() => {
                         welcomeOverlay.style.display = "none";
-                        welcomeOverlay.style.opacity = 1; // Reset for next time
-                        welcomeOverlay.style.transition = ""; // Reset transition
-                    }, 500);
-                }, 2500); // Show welcome message for 2.5 seconds
+                        // Reset properties for next login
+                        welcomeOverlay.style.transform = ""; 
+                    }, 800); // Matches CSS transition time
+                }
             }
 
             function updateUserDisplay() {
-                if (!userInfoDisplay) return; // Safety check
+                if (!userInfoDisplay) return; 
                 const user = sessionStorage.getItem('pb_auth_user') || "Guest";
                 userInfoDisplay.textContent = `Logged in as: ${user}`;
             }
@@ -1475,34 +1509,62 @@
                 const user = sessionStorage.getItem('pb_auth_user');
                 if (user) {
                     updateUserDisplay();
-                    showView('template'); // Skip login
+                    showView('template'); 
                 } else {
                     showView('login');
                 }
+            }
+
+            // NEW: Logout Logic with Animation & Cleanup
+            function performLogout() {
+                // Removed playPowerDownSound() call here
+                
+                // 1. Trigger Visual Animation on Body
+                document.body.classList.add('powering-down');
+
+                // 2. Wait for animation
+                setTimeout(() => {
+                    // 3. Clear Session Data
+                    sessionStorage.removeItem('pb_auth_user');
+                    
+                    // 4. Clean up current photo session (Privacy)
+                    capturedPhotos = [];
+                    photoCount = 0;
+                    photoSlots = [];
+                    templateImage.src = "";
+                    fileNameEl.textContent = "";
+                    startBtn.style.display = 'none';
+
+                    // 5. Reset UI
+                    settingsModal.style.display = 'none';
+                    document.body.classList.remove('powering-down'); // Reset anim class
+                    
+                    // 6. Go to Login
+                    showView('login');
+                }, 600); // Wait slightly longer than animation (0.55s)
             }
 
             loginBtn.addEventListener('click', handleLogin);
             loginPassInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') handleLogin();
             });
-            
-            // NEW: Trigger sound on typing
             loginPassInput.addEventListener('input', playKeyClick);
 
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', () => {
-                    sessionStorage.removeItem('pb_auth_user');
-                    settingsModal.style.display = 'none';
-                    showView('login');
+                    // NEW: Confirmation before logout
+                    confirmMsg.textContent = "Are you sure you want to logout?";
+                    confirmModal.style.display = 'flex';
+                    
+                    onConfirmAction = () => {
+                        performLogout();
+                    };
                 });
             }
 
-
-            // --- Modal Handlers ---
             settingsBtn.addEventListener('click', () => settingsModal.style.display = 'flex');
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
-                // If in camera view, restart camera to apply new driver settings
                 if (views.camera.style.display === 'flex') {
                     startCamera();
                 }
@@ -1512,7 +1574,6 @@
             closeGalleryBtn.addEventListener('click', () => galleryModal.style.display = 'none');
             galleryCloseBtnFooter.addEventListener('click', () => galleryModal.style.display = 'none');
             
-            // --- Layout Generator ---
             openLgBtn.addEventListener('click', () => { lgModal.style.display = 'flex'; updateLgPreview(); });
             lgCancelBtn.addEventListener('click', () => lgModal.style.display = 'none');
             Object.values(lgInputs).forEach(input => input.addEventListener('input', updateLgPreview));
@@ -1536,68 +1597,43 @@
                 numPhotosToTake = rows * cols; photoCountSelect.value = numPhotosToTake;
                 templateImage.onload = () => {
                     fileNameEl.textContent = "Custom Layout Generated"; updateTemplateImageData(templateImage);
-                    analyzeTemplateHoles(); // Analyze for snapping
+                    analyzeTemplateHoles(); 
                     const padding = parseInt(lgInputs.padding.value); const gap = parseInt(lgInputs.gap.value); const photoW = 600; const photoH = 400;
                     photoSlots = [];
-                    // Increased width padding to +10 (was +5)
                     for(let r=0; r<rows; r++) { for(let c=0; c<cols; c++) { photoSlots.push({ centerX: padding + c * (photoW + gap) + photoW/2, centerY: padding + r * (photoH + gap) + photoH/2, width: photoW + 10, height: photoH + 2, rotation: 0, scale: 1, shape: 'rect' }); } }
                     autoMapMsg.textContent = `✨ Generated ${numPhotosToTake} slot layout!`; autoMapMsg.style.display = 'block';
                     startBtn.style.display = 'block'; startBtn.disabled = false; lgModal.style.display = 'none'; saveState();
                 };
             });
 
-            // --- Auto-Detection & Analysis ---
-            
-            // NEW: Analyzes the template to find "Holes" and stores them as snap targets
             function analyzeTemplateHoles() {
                 if (!templateImageData) return;
                 const data = templateImageData.data; const w = templateImageData.width; const h = templateImageData.height;
                 const visited = new Uint8Array(w * h); 
-                detectedHoles = []; // Clear previous
-
+                detectedHoles = []; 
                 const isTransparent = (i) => data[i * 4 + 3] < 50; 
                 const rawRegions = [];
-                
                 for (let y = 0; y < h; y += 4) { 
                     for (let x = 0; x < w; x += 4) {
                         const i = y * w + x; 
                         if (visited[i] || !isTransparent(i)) continue;
-                        
-                        // Use existing flood fill to find regions
                         const region = performFloodFillMoments(x, y, w, h, data, visited);
-                        
-                        // Initial noise filter (ignore tiny specks < 100px area)
-                        if (region.count > 100) {
-                            rawRegions.push(region);
-                        }
+                        if (region.count > 100) { rawRegions.push(region); }
                     }
                 }
-
-                // --- SMART FILTERING ---
-                // Sort regions by size (largest to smallest)
                 if (rawRegions.length > 0) {
                     rawRegions.sort((a, b) => b.count - a.count);
-                    
-                    // The largest region is assumed to be a valid slot.
                     const maxArea = rawRegions[0].count;
-                    
-                    // Filter: Keep only regions that are at least 15% of the size of the largest slot.
-                    // This removes small logos, text, or artifacts while keeping varying slot sizes (e.g., one big main photo and smaller strip photos).
                     detectedHoles = rawRegions.filter(r => r.count > (maxArea * 0.15));
                 }
-
-                console.log(`Analyzed template: Found ${detectedHoles.length} valid slots (filtered from ${rawRegions.length}).`);
+                console.log(`Analyzed template: Found ${detectedHoles.length} valid slots.`);
             }
 
             function detectTemplateSlots(img) {
                 updateTemplateImageData(img); 
-                analyzeTemplateHoles(); // This now populates detectedHoles with the filtered list
-                
-                // Sort detected holes top-left to bottom-right for logical numbering
+                analyzeTemplateHoles(); 
                 const detected = [...detectedHoles];
                 detected.sort((a, b) => { const rowThreshold = img.height * 0.1; if (Math.abs(a.centerY - b.centerY) < rowThreshold) return a.centerX - b.centerX; return a.centerY - b.centerY; });
-                
-                // Increased width padding to +10 (was +5)
                 return detected.map(r => ({ centerX: r.centerX, centerY: r.centerY, width: r.width + 10, height: r.height + 2, rotation: r.rotation, scale: 1, shape: 'rect' }));
             }
 
@@ -1605,142 +1641,74 @@
                 const stack = [startX, startY]; 
                 let sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0, count = 0; 
                 const perimeterPoints = []; 
-                
                 while (stack.length) {
                     const y = stack.pop(); 
                     const x = stack.pop(); 
                     const i = y * w + x; 
-                    
                     if (visited[i]) continue; 
                     visited[i] = 1;
-                    
-                    // Moments for Orientation Estimation
                     sumX += x; sumY += y; 
                     sumXX += x * x; sumYY += y * y; sumXY += x * y; 
                     count++; 
-
-                    // Edge Detection
                     let isEdge = false;
                     if (x+1 >= w || data[(y*w+(x+1))*4+3] >= 50) isEdge = true;
                     else if (x-1 < 0 || data[(y*w+(x-1))*4+3] >= 50) isEdge = true;
                     else if (y+1 >= h || data[((y+1)*w+x)*4+3] >= 50) isEdge = true;
                     else if (y-1 < 0 || data[((y-1)*w+x)*4+3] >= 50) isEdge = true;
-
-                    if (isEdge) {
-                        perimeterPoints.push({x, y});
-                    }
-
+                    if (isEdge) { perimeterPoints.push({x, y}); }
                     if (x+1 < w && !visited[y*w+(x+1)] && data[(y*w+(x+1))*4+3] < 50) stack.push(x+1, y);
                     if (x-1 >= 0 && !visited[y*w+(x-1)] && data[(y*w+(x-1))*4+3] < 50) stack.push(x-1, y);
                     if (y+1 < h && !visited[(y+1)*w+x] && data[((y+1)*w+x)*4+3] < 50) stack.push(x, y+1);
                     if (y-1 >= 0 && !visited[(y-1)*w+x] && data[((y-1)*w+x)*4+3] < 50) stack.push(x, y-1);
                 }
-                
-                // Center of Mass (Reference Point)
                 const comX = sumX / count; 
                 const comY = sumY / count;
-                
-                // 1. Estimate Angle
                 const u20 = sumXX / count - comX * comX; 
                 const u02 = sumYY / count - comY * comY; 
                 const u11 = sumXY / count - comX * comY;
                 let initialTheta = 0.5 * Math.atan2(2 * u11, u20 - u02);
-
-                // 2. Optimization: Find Exact Geometric Bounds
                 let bestTheta = initialTheta;
                 let bestArea = Infinity;
                 let bestBounds = { minU: 0, maxU: 0, minV: 0, maxV: 0 };
-
                 const anglesToCheck = [0, Math.PI/2];
-                for (let i = -10; i <= 10; i+=1) { // Finer step
-                    anglesToCheck.push(initialTheta + (i * Math.PI / 180));
-                }
-
+                for (let i = -10; i <= 10; i+=1) { anglesToCheck.push(initialTheta + (i * Math.PI / 180)); }
                 const pointsToCheck = perimeterPoints.length > 0 ? perimeterPoints : [{x: comX, y: comY}];
-
                 for (let theta of anglesToCheck) {
                     let minU = Infinity, maxU = -Infinity; 
                     let minV = Infinity, maxV = -Infinity; 
                     const cos = Math.cos(-theta); 
                     const sin = Math.sin(-theta);
-                    
-                    // Project all edge points onto this angle's axes
                     for (let p of pointsToCheck) { 
                         const dx = p.x - comX; 
                         const dy = p.y - comY; 
-                        
-                        // Rotate point relative to Center of Mass
                         const u = dx * cos - dy * sin; 
                         const v = dx * sin + dy * cos; 
-                        
                         if (u < minU) minU = u; 
                         if (u > maxU) maxU = u; 
                         if (v < minV) minV = v; 
                         if (v > maxV) maxV = v; 
                     }
-                    
                     const w = maxU - minU;
                     const h = maxV - minV;
                     const area = w * h;
-
                     if (area < bestArea) {
                         bestArea = area;
                         bestTheta = theta;
-                        // Store the bounds relative to CoM so we can recalculate Geometric Center later
                         bestBounds = { minU, maxU, minV, maxV };
                     }
                 }
-
-                // 3. Snap Rotation
                 const snapThreshold = 1.5 * Math.PI / 180; 
                 if (Math.abs(bestTheta) < snapThreshold) bestTheta = 0;
                 else if (Math.abs(Math.abs(bestTheta) - Math.PI/2) < snapThreshold) bestTheta = Math.sign(bestTheta) * Math.PI/2;
-
-                // 4. Calculate Geometric Center (Fixing the Misalignment)
-                // The CoM is rarely the center of the bounding box. We shift the center based on the min/max bounds found.
                 const width = bestBounds.maxU - bestBounds.minU;
                 const height = bestBounds.maxV - bestBounds.minV;
-                
                 const midU = (bestBounds.minU + bestBounds.maxU) / 2;
                 const midV = (bestBounds.minV + bestBounds.maxV) / 2;
-
-                // Rotate the midpoint shift back to world coordinates
-                const cos = Math.cos(bestTheta); // Note: Positive theta here to rotate back
-                const sin = Math.sin(bestTheta);
-                
-                // Note: Our projection used -theta. So to go back:
-                // x = u * cos - v * sin
-                // y = u * sin + v * cos
-                // Wait, simpler:
-                // We projected: u = dx*cos(-t) - dy*sin(-t) => u = dx*C + dy*S
-                //               v = dx*sin(-t) + dy*cos(-t) => v = -dx*S + dy*C
-                // Inverse is:
-                // dx = u*C - v*S
-                // dy = u*S + v*C
-                // Using standard rotation matrix logic where theta was the rotation of the AXIS.
-                // Let's stick to the standard inverse rotation matrix.
-                
-                const C = Math.cos(-bestTheta);
-                const S = Math.sin(-bestTheta);
-                
-                // Inverse of rotation matrix [[C, -S], [S, C]] is [[C, S], [-S, C]]
-                const shiftX = midU * C + midV * S; // Transpose row 1
-                const shiftY = midU * (-S) + midV * C; // Transpose row 2 (Simplified: Inverse rotation)
-
                 const finalCenterX = comX + (midU * Math.cos(bestTheta) - midV * Math.sin(bestTheta));
                 const finalCenterY = comY + (midU * Math.sin(bestTheta) + midV * Math.cos(bestTheta));
-
-                return { 
-                    centerX: finalCenterX, 
-                    centerY: finalCenterY, 
-                    width: width, // No extra padding, fit exactly to edges
-                    height: height, 
-                    rotation: bestTheta, 
-                    count 
-                };
+                return { centerX: finalCenterX, centerY: finalCenterY, width: width, height: height, rotation: bestTheta, count };
             }
 
-            // --- Quick Start ---
             function generateTemplate(type) {
                 const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
                 if (type === 'strip') {
@@ -1757,15 +1725,30 @@
                 photoCountSelect.value = numPhotosToTake; return canvas.toDataURL('image/png');
             }
 
-            // --- Helpers ---
-            function showNotification(msg, imageUrl = null) {
-                // Play Sound
-                playSuccessSound();
+            // UPDATED: Notification logic with Undo support
+            function showNotification(msg, imageUrl = null, type = 'success') {
+                if (type !== 'error') playSuccessSound();
 
-                // Set Text
                 notificationText.textContent = msg;
                 
-                // Handle Thumbnail vs Icon
+                // Styling
+                if (type === 'error' || type === true) { // handle legacy 'true' for isError
+                    notificationToast.classList.add('error');
+                    toastViewBtn.style.display = 'none';
+                    toastUndoBtn.style.display = 'none';
+                } else {
+                    notificationToast.classList.remove('error');
+                    
+                    if (type === 'undo') {
+                        toastViewBtn.style.display = 'none';
+                        toastUndoBtn.style.display = 'block';
+                        toastUndoBtn.onclick = undoLastDelete;
+                    } else {
+                        toastViewBtn.style.display = 'block';
+                        toastUndoBtn.style.display = 'none';
+                    }
+                }
+                
                 if (imageUrl) {
                     toastThumb.src = imageUrl;
                     toastThumb.style.display = 'block';
@@ -1775,20 +1758,14 @@
                     toastIcon.style.display = 'block';
                 }
 
-                // Show Notification
                 notificationToast.classList.add('show');
-                
-                // Hide after delay
-                setTimeout(() => {
-                    notificationToast.classList.remove('show');
-                }, 4000);
+                setTimeout(() => { notificationToast.classList.remove('show'); }, 4000);
             }
 
-            // New Listener for "View" Button inside toast
             toastViewBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent bubbling
-                notificationToast.classList.remove('show'); // Hide toast
-                galleryModal.style.display = 'flex'; // Open gallery
+                e.stopPropagation(); 
+                notificationToast.classList.remove('show'); 
+                galleryModal.style.display = 'flex'; 
             });
 
             function showView(viewName) {
@@ -1821,23 +1798,22 @@
                 } catch (err) { console.error("Error accessing camera:", err); cameraSelect.innerHTML = '<option value="">Camera access denied</option>'; }
             }
 
-            // --- Events ---
             qsStripBtn.addEventListener('click', () => { 
                 templateImage.src = generateTemplate('strip'); 
                 useTemplate = true; 
-                isQuickStart = true; // Set flag
+                isQuickStart = true; 
                 templateImage.onload = () => { updateTemplateImageData(templateImage); analyzeTemplateHoles(); saveState(); showView('camera'); startCamera(); }; 
             });
             qsGridBtn.addEventListener('click', () => { 
                 templateImage.src = generateTemplate('grid'); 
                 useTemplate = true; 
-                isQuickStart = true; // Set flag
+                isQuickStart = true; 
                 templateImage.onload = () => { updateTemplateImageData(templateImage); analyzeTemplateHoles(); saveState(); showView('camera'); startCamera(); }; 
             });
             qsGridBtn.addEventListener('click', () => { 
                 templateImage.src = generateTemplate('grid'); 
                 useTemplate = true; 
-                isQuickStart = true; // Set flag
+                isQuickStart = true; 
                 templateImage.onload = () => { updateTemplateImageData(templateImage); saveState(); showView('camera'); startCamera(); }; 
             });
 
@@ -1862,7 +1838,7 @@
             
             startBtn.addEventListener('click', () => { 
                 useTemplate = true; 
-                isQuickStart = false; // Manual mapping flow
+                isQuickStart = false; 
                 setupMappingView(); 
                 showView('mapping'); 
             });
@@ -1871,7 +1847,6 @@
             filterSelect.addEventListener('change', () => { const filter = filterSelect.value; videoEl.style.filter = filter; aiCanvas.style.filter = filter; document.getElementById('photo-preview-overlay').style.filter = filter; });
             toggleOverlayBtn.addEventListener('click', () => { templateOverlayEnabled = !templateOverlayEnabled; toggleOverlayBtn.classList.toggle('active'); liveTemplateImg.style.display = templateOverlayEnabled && useTemplate ? 'block' : 'none'; });
 
-            // --- Mapping Logic ---
             toolRect.addEventListener('click', () => { mappingState.drawingShape = 'rect'; toolRect.classList.add('active'); toolCircle.classList.remove('active'); });
             toolCircle.addEventListener('click', () => { mappingState.drawingShape = 'circle'; toolCircle.classList.add('active'); toolRect.classList.remove('active'); });
             toolSnap.addEventListener('click', () => { mappingState.snapEnabled = !mappingState.snapEnabled; toolSnap.classList.toggle('active'); });
@@ -1895,22 +1870,15 @@
             function updateButtonStates() { 
                 undoBtn.disabled = photoSlots.length === 0; 
                 startMappedBtn.style.display = photoSlots.length === numPhotosToTake ? 'block' : 'none';
-                
-                // Toggle Control Panel visibility
                 mappingControlsPanel.classList.toggle('hidden', mappingState.selectedIndex === -1);
-                
                 if(mappingState.selectedIndex !== -1) {
                     const s = photoSlots[mappingState.selectedIndex];
                     slotInfoLabel.textContent = `Slot #${mappingState.selectedIndex + 1}`;
                     scaleValueLabel.textContent = `Scale: ${Math.round(s.scale * 100)}%`;
-                    
-                    // Normalize rotation for UI (degrees)
                     let deg = Math.round(s.rotation * 180 / Math.PI);
-                    // Keep within -180 to 180 for slider
                     deg = deg % 360;
                     if (deg > 180) deg -= 360;
                     if (deg <= -180) deg += 360;
-                    
                     rotationSlider.value = deg;
                     rotationDisplay.textContent = `${deg}°`;
                 }
@@ -1922,7 +1890,6 @@
                 else { mappingInstructions.innerHTML = `Draw Slot **${photoSlots.length + 1}/${numPhotosToTake}**. Click inside holes to Auto-Detect.`; }
             }
 
-            // --- NEW: Rotation Event Listeners ---
             rotationSlider.addEventListener('input', (e) => {
                 if (mappingState.selectedIndex === -1) return;
                 const s = photoSlots[mappingState.selectedIndex];
@@ -1930,11 +1897,8 @@
                 s.rotation = deg * Math.PI / 180;
                 rotationDisplay.textContent = `${deg}°`;
                 drawCurrentMapping();
-                // No saveState on every drag for performance, add 'change' listener if needed, 
-                // but 'input' is smoother visually. We save on mouseup/confirm.
             });
 
-            // Save state when slider released
             rotationSlider.addEventListener('change', saveState);
 
             function rotateSelectedSlot(angleDeg) {
@@ -1944,15 +1908,13 @@
                 deg += angleDeg;
                 s.rotation = deg * Math.PI / 180;
                 drawCurrentMapping();
-                updateButtonStates(); // Refreshes the slider/text
+                updateButtonStates(); 
                 saveState();
             }
 
             rotCCW.addEventListener('click', () => rotateSelectedSlot(-90));
             rotCW.addEventListener('click', () => rotateSelectedSlot(90));
             
-            // --- Existing Draw Logic ---
-
             function drawRotatedRect(ctx, slot, scaleX, scaleY, color, label, isSelected) {
                 const dispCX = slot.centerX * scaleX; const dispCY = slot.centerY * scaleY; 
                 const dispW = (slot.width * scaleX) * slot.scale; const dispH = (slot.height * scaleY) * slot.scale;
@@ -1969,7 +1931,6 @@
                 const scaleX = displayW / templateImage.width; const scaleY = displayH / templateImage.height;
                 mappingCtx.clearRect(0, 0, displayW, displayH); mappingCtx.drawImage(templateImage, 0, 0, displayW, displayH);
                 
-                // Debug Visualization: Draw detected background holes as blue crosses
                 if (mappingState.snapEnabled) {
                     mappingCtx.save();
                     mappingCtx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
@@ -1995,32 +1956,20 @@
                 }
             }
 
-            // --- FIX: Correct Coordinate Mapping for CSS Scaling ---
             function getCoords(e) {
                 const rect = mappingCanvas.getBoundingClientRect(); 
                 let clientX, clientY; 
                 if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else { clientX = e.clientX; clientY = e.clientY; }
-                
-                // 1. Screen Coordinates (relative to element visual top-left)
                 const screenX = clientX - rect.left; 
                 const screenY = clientY - rect.top; 
-
-                // 2. Calculate scaling ratio between Visual Size (CSS) and Internal Size (Resolution)
-                // This fixes the offset when the canvas is shrunk by max-width/max-height
                 const domScaleX = mappingCanvas.width / rect.width;
                 const domScaleY = mappingCanvas.height / rect.height;
-
-                // 3. Internal Canvas Coordinates (Used for Hit Testing & Drawing)
                 const canvasX = screenX * domScaleX;
                 const canvasY = screenY * domScaleY;
-
-                // 4. Original Image Coordinates (Used for Data Storage)
                 const imgScaleX = templateImage.width / mappingCanvas.width;
                 const imgScaleY = templateImage.height / mappingCanvas.height;
-                
                 const originalX = canvasX * imgScaleX;
                 const originalY = canvasY * imgScaleY;
-
                 return { canvasX, canvasY, originalX, originalY };
             }
 
@@ -2050,27 +1999,20 @@
 
             function updateMagnifier(canvasX, canvasY) {
                 if (!mappingState.isDragging && !mappingState.isCreating) { magnifier.style.display = 'none'; return; }
-                
-                // Convert Internal Canvas Coords -> Screen Coords for positioning the div
                 const rect = mappingCanvas.getBoundingClientRect();
                 const domScaleX = rect.width / mappingCanvas.width;
                 const domScaleY = rect.height / mappingCanvas.height;
                 const screenX = canvasX * domScaleX;
                 const screenY = canvasY * domScaleY;
-
                 magnifier.style.display = 'block'; 
                 magnifier.style.left = (screenX + 20) + 'px'; 
                 magnifier.style.top = (screenY - 60) + 'px'; 
-                
                 const zoom = 2; 
                 magnifier.style.backgroundImage = `url(${templateImage.src})`; 
-                // Use internal canvasX/Y for accurate background positioning relative to image content
-                // We need to map canvasX -> imageX, then apply zoom
                 const scaleX = templateImage.width / mappingCanvas.width;
                 const scaleY = templateImage.height / mappingCanvas.height;
                 const imgX = canvasX * scaleX;
                 const imgY = canvasY * scaleY;
-
                 magnifier.style.backgroundSize = `${templateImage.width * zoom}px ${templateImage.height * zoom}px`; 
                 magnifier.style.backgroundPosition = `-${imgX * zoom - 50}px -${imgY * zoom - 50}px`;
             }
@@ -2078,12 +2020,9 @@
             mappingCanvas.addEventListener('mousedown', (e) => {
                 e.preventDefault(); 
                 const coords = getCoords(e); 
-                // Use Canvas Coords for Hit Test (as drawing is in Canvas Space)
                 const hit = hitTest(coords.canvasX, coords.canvasY);
-                
                 if (hit) {
                     mappingState.selectedIndex = hit.index; mappingState.dragType = hit.type; mappingState.isDragging = true;
-                    // Use Original Image Coords for data manipulation
                     mappingState.dragOffsetX = coords.originalX; mappingState.dragOffsetY = coords.originalY;
                     const s = photoSlots[hit.index]; mappingState.baseWidth = s.width * s.scale; mappingState.baseHeight = s.height * s.scale; mappingState.baseCenterX = s.centerX; mappingState.baseCenterY = s.centerY;
                 } else {
@@ -2102,7 +2041,6 @@
                     }
                     if (!magicWandSuccess && photoSlots.length < numPhotosToTake) { 
                         mappingState.isCreating = true; 
-                        // Use Canvas Coords for temporary drawing visualization
                         mappingState.startX = coords.canvasX; mappingState.startY = coords.canvasY; 
                         mappingState.tempX = coords.canvasX; mappingState.tempY = coords.canvasY; 
                     }
@@ -2113,44 +2051,31 @@
             mappingCanvas.addEventListener('mousemove', (e) => {
                 const coords = getCoords(e); 
                 updateMagnifier(coords.canvasX, coords.canvasY);
-                
                 if (mappingState.isDragging && mappingState.selectedIndex !== -1) {
                     const s = photoSlots[mappingState.selectedIndex];
-                    // Drag logic uses Original Image Coordinates (consistent with storage)
                     const dX = (coords.originalX - mappingState.dragOffsetX); const dY = (coords.originalY - mappingState.dragOffsetY);
                     let snapX = 0, snapY = 0;
                     let isAutoFitted = false;
-                    
                     if (mappingState.snapEnabled && mappingState.dragType === 'move') { 
-                        // 1. Snap to other slots (Position Only)
                         photoSlots.forEach((other, idx) => { 
                             if (idx !== mappingState.selectedIndex) { 
                                 if (Math.abs((mappingState.baseCenterX + dX) - other.centerX) < 20) snapX = other.centerX - (mappingState.baseCenterX + dX); 
                                 if (Math.abs((mappingState.baseCenterY + dY) - other.centerY) < 20) snapY = other.centerY - (mappingState.baseCenterY + dY); 
                             } 
                         }); 
-
-                        // 2. Snap to BACKGROUND HOLES (Position + Rotation + Size)
                         detectedHoles.forEach(hole => {
                              const dist = Math.sqrt(Math.pow((mappingState.baseCenterX + dX) - hole.centerX, 2) + Math.pow((mappingState.baseCenterY + dY) - hole.centerY, 2));
-                             
-                             // Stronger snap threshold for background holes
                              if (dist < 25) {
                                  snapX = hole.centerX - (mappingState.baseCenterX + dX);
                                  snapY = hole.centerY - (mappingState.baseCenterY + dY);
-                                 
-                                 // --- AUTO FIT LOGIC ---
-                                 // Instantly match the hole's dimensions and rotation
                                  s.rotation = hole.rotation;
                                  s.width = hole.width;
                                  s.height = hole.height;
-                                 s.scale = 1; // Reset scale as width/height are now absolute
-                                 
+                                 s.scale = 1; 
                                  isAutoFitted = true;
                              }
                         });
                     }
-
                     if (mappingState.dragType === 'move') { 
                         s.centerX = mappingState.baseCenterX + dX + snapX; 
                         s.centerY = mappingState.baseCenterY + dY + snapY; 
@@ -2163,12 +2088,10 @@
                         if (mappingState.aspectRatio) { newH = newW / mappingState.aspectRatio; }
                         if (newW > 10) s.width = newW / s.scale; if (newH > 10) s.height = newH / s.scale;
                     }
-                    
                     drawCurrentMapping(); 
                     if (isAutoFitted) updateButtonStates(); 
                     updateButtonStates();
                 } else if (mappingState.isCreating) {
-                    // Use Canvas Coordinates for drawing new shapes (visual)
                     mappingState.tempX = coords.canvasX; mappingState.tempY = coords.canvasY;
                     if (mappingState.aspectRatio) { const w = mappingState.tempX - mappingState.startX; mappingState.tempY = mappingState.startY + (Math.abs(w) / mappingState.aspectRatio) * Math.sign(mappingState.tempY - mappingState.startY); }
                     drawCurrentMapping();
@@ -2182,28 +2105,17 @@
                 magnifier.style.display = 'none';
                 if (mappingState.isCreating) {
                     const coords = getCoords(e);
-                    // Conversion for storage: Canvas Delta -> Image Delta
                     const scaleX = templateImage.width / mappingCanvas.width; 
                     const scaleY = templateImage.height / mappingCanvas.height;
-
-                    // Calculate width/height in Canvas Space first
                     const canvasW = Math.abs(coords.canvasX - mappingState.startX);
                     const canvasH = Math.abs(coords.canvasY - mappingState.startY);
-
-                    // Convert to Image Space
                     const w = canvasW * scaleX;
                     const h = canvasH * scaleY;
-
                     if (w > 10 && h > 10) {
-                        // Calculate Center in Image Space
-                        // StartX/Y are in Canvas Space. Convert to Image Space first.
                         const imgStartX = mappingState.startX * scaleX;
                         const imgStartY = mappingState.startY * scaleY;
-                        
-                        // Correct logic to handle dragging in any direction (TL to BR or BR to TL)
                         const cx = imgStartX + (coords.originalX - imgStartX) / 2;
                         const cy = imgStartY + (coords.originalY - imgStartY) / 2;
-
                         photoSlots.push({ centerX: cx, centerY: cy, width: w, height: h, rotation: 0, scale: 1, shape: mappingState.drawingShape }); mappingState.selectedIndex = photoSlots.length - 1; saveState();
                     }
                     mappingState.isCreating = false; updateButtonStates(); drawCurrentMapping();
@@ -2221,36 +2133,28 @@
                     if (e.key === 'Delete' || e.key === 'Backspace') { deleteSlotBtn.click(); }
                     drawCurrentMapping(); updateButtonStates();
                 }
-                // Global Shortcuts
                 if (e.key === "Escape") { 
-                    // Specific logic: if closePreviewBtn is visible, emulate click
                     if (closePreviewBtn.style.display !== 'none') {
                         closePreviewBtn.click();
                         return;
                     }
-
                     if (views.camera.style.display === 'flex') exitCamera();
                     galleryModal.style.display = 'none';
                     settingsModal.style.display = 'none';
                 }
                 if (views.camera.style.display === 'flex' && e.code === 'Space') { e.preventDefault(); if (captureBtn.style.display !== 'none') captureBtn.click(); }
-                
-                // Preview Shortcuts
                 if(views.preview.style.display === 'flex') {
                     if(e.key.toLowerCase() === 'p') printBtn.click();
                     if(e.key.toLowerCase() === 's') saveBtn.click();
                     if(e.key.toLowerCase() === 'r' && retakeBtn.style.display !== 'none') retakeBtn.click();
                 }
-                // Gallery Toggle
                 if(e.key.toLowerCase() === 'g') galleryModal.style.display = (galleryModal.style.display === 'none' ? 'flex' : 'none');
             });
 
             deleteSlotBtn.addEventListener('click', () => { if (mappingState.selectedIndex !== -1) { photoSlots.splice(mappingState.selectedIndex, 1); mappingState.selectedIndex = -1; drawCurrentMapping(); updateButtonStates(); saveState(); } });
             confirmAdjustmentBtn.addEventListener('click', () => { mappingState.selectedIndex = -1; drawCurrentMapping(); updateButtonStates(); saveState(); });
 
-            // --- Camera Logic ---
             function exitCamera() {
-                // 1. If counting down, just cancel the timer and stay in Camera View (Idle)
                 if (isCountingDown) {
                     if (countdownInterval) clearInterval(countdownInterval);
                     countdownInterval = null;
@@ -2258,21 +2162,16 @@
                     countdownEl.classList.remove('animate', 'is-arrow');
                     cropFrameOverlay.style.display = 'none';
                     cameraControls.classList.remove('controls-hidden');
-                    captureBtn.style.display = 'block'; // Show capture button again
+                    captureBtn.style.display = 'block'; 
                     isCountingDown = false;
-                    updateCameraCropVisual(); // Restore the crop frame if needed
-                    return; // STAY IN VIEW
+                    updateCameraCropVisual(); 
+                    return; 
                 }
-
-                // 2. Otherwise, exit the camera view
-                stopCamera(); // Soft stop (keeps camera hot for quick return)
-                
+                stopCamera(); 
                 capturedPhotos = []; 
                 photoCount = 0; 
                 cropFrameOverlay.style.display = 'none'; 
                 cameraControls.classList.remove('controls-hidden'); 
-                
-                // Smart Navigation: If Quick Start, go Home. If Custom Map, go Mapping.
                 if (useTemplate && !isQuickStart) { 
                     setupMappingView(); 
                     showView('mapping'); 
@@ -2283,7 +2182,6 @@
             }
             closeCameraBtn.addEventListener('click', exitCamera);
 
-            // NEW: Hard Stop (Used when changing settings)
             function killCameraStream() {
                 if (stream) {
                     stream.getTracks().forEach(track => {
@@ -2295,73 +2193,41 @@
                 videoEl.srcObject = null;
             }
 
-            // MODIFIED: Robust startCamera with Smart Reuse
             async function startCamera(retryCount = 0) {
                 if (retakeIndex === null) { capturedPhotos = []; photoCount = 0; } else { photoCount = retakeIndex; } 
-                
                 updatePhotoCounter(); 
                 renderCapturedThumbnails(); 
-                
                 captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
-                
                 let selectedDeviceId = cameraSelect.value;
                 const driverMode = driverModeSelect.value; 
-                
-                if (selectedDeviceId === "" || selectedDeviceId === "Loading cameras...") {
-                    selectedDeviceId = undefined; 
-                }
-
-                // --- NEW: HOT STREAM REUSE ---
-                // Check if we have an active stream AND the settings haven't changed
+                if (selectedDeviceId === "" || selectedDeviceId === "Loading cameras...") { selectedDeviceId = undefined; }
                 const settingsChanged = (lastUsedDriverMode !== driverMode);
-                
                 if (stream && stream.active && videoEl.srcObject && !settingsChanged) {
                     const track = stream.getVideoTracks()[0];
-                    // Check if track is healthy
                     if (track.readyState === 'live') {
                         const settings = track.getSettings();
-                        // If no specific device requested OR matches current device
                         if (!selectedDeviceId || settings.deviceId === selectedDeviceId) {
                             console.log("Camera is already live. Resuming playback.");
-                            
-                            // CRITICAL: Ensure video is playing (it might have been paused in stopCamera)
                             try { await videoEl.play(); } catch(e) { console.log("Resume play caught:", e); }
-                            
                             cameraControls.classList.remove('controls-hidden');
-                            
-                            // Restore Zoom UI
                             try {
                                 const caps = track.getCapabilities();
                                 if (caps && caps.zoom) zoomContainer.style.display = 'flex';
                             } catch(e) {}
-
                             if (aiBlurEnabled) startVideoProcessing();
-                            
-                            // Ensure visibility
                             if (!aiBlurEnabled) videoEl.style.opacity = 1;
-                            
-                            return; // EXIT FUNCTION: No hardware restart needed!
+                            return; 
                         }
                     }
                 }
-
-                // IF WE REACH HERE: We need a fresh connection (New Device, New Mode, or First Run)
-                
-                // 1. Kill existing stream cleanly
                 if (stream) {
-                    killCameraStream(); // HARD STOP
-                    // Delay allows "sticky" drivers (Sony) to release hardware
+                    killCameraStream(); 
                     console.log("Releasing camera driver for restart...");
                     await new Promise(resolve => setTimeout(resolve, 300));
                 }
-                
-                lastUsedDriverMode = driverMode; // Update state
-
-                // Define Constraints based on Dropdown
+                lastUsedDriverMode = driverMode; 
                 let constraintSets = [];
-
                 if (driverMode === 'sony') {
-                    // STRICT Sony Mode (1024x576)
                     constraintSets = [{ 
                         video: { 
                             width: { min: 1024, ideal: 1024, max: 1024 }, 
@@ -2371,7 +2237,6 @@
                         audio: false 
                     }];
                 } else if (driverMode === 'hd') {
-                    // Standard HD
                     constraintSets = [{ 
                         video: { 
                             width: { ideal: 1280 }, 
@@ -2381,7 +2246,6 @@
                         audio: false 
                     }];
                 } else if (driverMode === 'vga') {
-                    // Safe Mode
                     constraintSets = [{ 
                         video: { 
                             width: { ideal: 640 }, 
@@ -2391,41 +2255,15 @@
                         audio: false 
                     }];
                 } else {
-                    // AUTO MODE (Fallback Sequence)
                     constraintSets = [
-                        // 1. Try HD (Most Common)
-                        { 
-                            video: { 
-                                width: { ideal: 1280 }, height: { ideal: 720 }, 
-                                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
-                            }, audio: false 
-                        },
-                        // 2. Try Sony Native (Magic Resolution)
-                        { 
-                            video: { 
-                                width: { min: 1024, max: 1024 }, height: { min: 576, max: 576 }, 
-                                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
-                            }, audio: false 
-                        },
-                        // 3. Try VGA (Safe)
-                        { 
-                            video: { 
-                                width: { ideal: 640 }, height: { ideal: 480 }, 
-                                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined 
-                            }, audio: false 
-                        },
-                        // 4. Any Signal
-                        { 
-                            video: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, 
-                            audio: false 
-                        }
+                        { video: { width: { ideal: 1280 }, height: { ideal: 720 }, deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false },
+                        { video: { width: { min: 1024, max: 1024 }, height: { min: 576, max: 576 }, deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false },
+                        { video: { width: { ideal: 640 }, height: { ideal: 480 }, deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false },
+                        { video: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }, audio: false }
                     ];
                 }
-
                 let activeStream = null;
                 let connectError = null;
-
-                // Loop through constraint sets until one works
                 for (const constraints of constraintSets) {
                     try {
                         console.log("Attempting camera connection with:", JSON.stringify(constraints.video));
@@ -2437,37 +2275,26 @@
                         connectError = err;
                     }
                 }
-
                 if (!activeStream) {
-                    // AUTO-RETRY LOGIC
                     if (retryCount < 3) {
                         console.log(`Camera failed. Retrying (${retryCount + 1}/3) in 0.5s...`);
                         await new Promise(resolve => setTimeout(resolve, 500));
                         return startCamera(retryCount + 1);
                     }
-
                     console.error("CRITICAL: All camera attempts failed.", connectError);
                     alert("Camera Error: Could not connect. Try changing 'Driver Fix' in Settings to 'Safe Mode' or check if another app is using the camera.");
                     stopCamera(); 
                     showView('template');
                     return;
                 }
-
-                // --- SUCCESSFUL STREAM HANDLER ---
                 stream = activeStream;
                 videoEl.srcObject = stream;
-                
-                // Force attributes to prevent playback issues
                 videoEl.setAttribute('autoplay', '');
                 videoEl.setAttribute('muted', '');
                 videoEl.setAttribute('playsinline', '');
-                
-                // Wait for metadata to load before playing
                 videoEl.onloadedmetadata = () => {
                     videoEl.play().then(() => {
                         cameraControls.classList.remove('controls-hidden');
-                        
-                        // Apply Zoom capabilities if available
                         videoTrack = stream.getVideoTracks()[0];
                         try {
                             const caps = videoTrack.getCapabilities();
@@ -2483,8 +2310,6 @@
                         } catch(e) {
                             zoomContainer.style.display = 'none'; 
                         }
-
-                        // Ensure visibility
                         if (!aiBlurEnabled) {
                             videoEl.style.opacity = 1;
                         } else {
@@ -2494,12 +2319,8 @@
                 };
             }
             
-            // MODIFIED: Soft Stop (Keeps Camera Alive)
             function stopCamera() { 
                 cancelAnimationFrame(animationFrameId); 
-                // Removed: stream track stopping logic
-                // We ONLY pause the video element to save rendering resources,
-                // but we keep the MediaStream active ("Hot") so retakes are instant.
                 videoEl.pause(); 
                 cameraControls.classList.remove('controls-hidden'); 
             }
@@ -2512,28 +2333,18 @@
                 if (currentSlot >= numPhotosToTake) { cropFrameOverlay.style.display = 'none'; return; }
                 let requiredRatio = TARGET_ASPECT_RATIO;
                 if (photoSlots[currentSlot]) requiredRatio = photoSlots[currentSlot].width / photoSlots[currentSlot].height;
-                
-                // Updated Logic for "cover" mode (Full Screen)
-                // In cover mode, the video fills the screen dimensions (vw, vh).
                 const vw = window.innerWidth; 
                 const vh = window.innerHeight; 
-                
-                // Calculate crop frame dimensions relative to the screen size (which is now the "visible" video size)
                 let frameW, frameH;
                 if (vw / vh > requiredRatio) {
-                    // Screen is wider than needed -> Fit height
                     frameH = vh;
                     frameW = vh * requiredRatio;
                 } else {
-                    // Screen is taller than needed -> Fit width
                     frameW = vw;
                     frameH = vw / requiredRatio;
                 }
-                
-                // Ensure frame doesn't exceed screen bounds
                 frameW = Math.min(frameW, vw);
                 frameH = Math.min(frameH, vh);
-
                 cropFrameOverlay.style.width = `${frameW}px`; 
                 cropFrameOverlay.style.height = `${frameH}px`; 
                 cropFrameOverlay.style.display = 'block';
@@ -2542,16 +2353,11 @@
             
             captureBtn.addEventListener('click', () => { if (videoEl.paused || videoEl.readyState < 3) return; captureBtn.style.display = 'none'; startCountdown(); });
             
-            // NEW: Flash Trigger Function
             function triggerFlash() {
                 flashOverlay.classList.remove('flash-active');
-                void flashOverlay.offsetWidth; // Trigger reflow to restart animation
+                void flashOverlay.offsetWidth; 
                 flashOverlay.classList.add('flash-active');
-                
-                // Clean up class after animation
-                setTimeout(() => {
-                    flashOverlay.classList.remove('flash-active');
-                }, 400);
+                setTimeout(() => { flashOverlay.classList.remove('flash-active'); }, 400);
             }
 
             function startCountdown() {
@@ -2566,15 +2372,8 @@
                     else if (count === 1) { countdownEl.textContent = '👆'; countdownEl.classList.add('is-arrow'); triggerCountdownAnimation(); playBeep(); } 
                     else { 
                         clearInterval(countdownInterval); countdownInterval = null; countdownEl.textContent = ''; triggerCountdownAnimation(); cropFrameOverlay.style.display = 'none'; 
-                        
-                        // Trigger Effects
                         playShutter(); 
-                        
-                        // UPDATED: Only fire flash if enabled
-                        if (flashEnabled) {
-                            triggerFlash(); 
-                        }
-
+                        if (flashEnabled) { triggerFlash(); }
                         setTimeout(() => { countdownEl.style.display = 'none'; countdownEl.classList.remove('is-arrow'); takePhoto(); }, 300);
                     }
                 }, 1000);
@@ -2593,54 +2392,32 @@
                 if (videoAspect > requiredAspectRatio) { sW = sourceH * requiredAspectRatio; sX = (sourceW - sW) / 2; } else { sH = sourceW / requiredAspectRatio; sY = (sourceH - sH) / 2; }
                 captureCanvas.width = sW; captureCanvas.height = sH;
                 captureCtx.save(); captureCtx.filter = filterSelect.value;
-                
-                // MODIFIED: Removed the mirror transformation for the capture Context.
-                // This ensures that even if the user is viewing a Mirrored Preview, 
-                // the final saved photo is "True" (Text is readable).
-                // if (mirrorToggle.checked) { captureCtx.translate(sW, 0); captureCtx.scale(-1, 1); } 
-                
                 captureCtx.drawImage(sourceEl, sX, sY, sW, sH, 0, 0, sW, sH); captureCtx.restore();
                 const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
-                
                 if (retakeIndex !== null) { capturedPhotos[retakeIndex] = currentPhotoDataUrl; } else { capturedPhotos.push(currentPhotoDataUrl); photoCount++; }
-                
                 updatePhotoCounter(); 
-                // REMOVED: renderCapturedThumbnails(); // Don't render immediately
-                
                 photoPreviewEl.src = currentPhotoDataUrl; photoPreviewEl.style.filter = filterSelect.value;
                 const randomTilt = Math.random() * 6 - 3; 
-                
-                // NEW: Visual Mirror Logic for Preview Only
-                // If Mirror is ON, we visually flip the preview element so it matches the live camera feed (continuity).
-                // However, the underlying src (currentPhotoDataUrl) remains "True" (un-mirrored) for the thumbnail/save.
                 const scaleX = mirrorToggle.checked ? -1.1 : 1.1;
-                
                 photoPreviewEl.style.transform = `translate(-50%, -50%) scale(${scaleX}, 1.1) rotate(${randomTilt}deg)`; 
                 photoPreviewEl.classList.add('show-preview');
-                
                 setTimeout(() => { 
                     photoPreviewEl.classList.remove('show-preview'); photoPreviewEl.style.transform = ''; photoPreviewEl.src = ''; isCountingDown = false;
-                    
-                    renderCapturedThumbnails(); // ADDED: Render here, after preview animation ends
-
+                    renderCapturedThumbnails(); 
                     if (retakeIndex !== null) { retakeIndex = null; stopCamera(); createFinalImage(); } 
                     else { if (photoCount < numPhotosToTake) { startCountdown(); } else { stopCamera(); createFinalImage(); } } 
                 }, 2000);
             }
 
-            // NEW: Function to render the thumbnail stack
             function renderCapturedThumbnails() {
                 capturedThumbnailsEl.innerHTML = '';
                 capturedPhotos.forEach((src, index) => {
                     const img = document.createElement('img');
                     img.src = src;
                     img.className = 'cap-thumb';
-                    
-                    // If we are retaking, highlight the photo being replaced or just taken
                     if (retakeIndex !== null && index === retakeIndex) {
                         img.classList.add('active-retake');
                     }
-                    
                     capturedThumbnailsEl.appendChild(img);
                 });
             }
@@ -2650,27 +2427,17 @@
             function createFinalImage() {
                 showView('preview'); const photoImages = []; let imagesLoaded = 0;
                 capturedPhotos.forEach((dataURL, index) => { const img = new Image(); img.onload = () => { imagesLoaded++; if (imagesLoaded === capturedPhotos.length) { if (useTemplate) drawWithTemplate(photoImages); else drawWithoutTemplate(photoImages); } }; img.src = dataURL; photoImages[index] = img; });
-                
-                // Normal flow logic (Active Session)
                 remapBtn.style.display = useTemplate ? 'block' : 'none'; 
                 cameraControls.classList.remove('controls-hidden');
-                
-                // Show standard navigation buttons
                 closePreviewBtn.style.display = 'none'; 
                 homeBtn.style.display = 'inline-flex'; 
                 retakeBtn.style.display = 'inline-flex'; 
             }
             
             function finalizeDraw() {
-                // Use JPEG 0.7 for storage to allow multiple images in limited SessionStorage
-                // PNGs are too large (~3MB+ for 1080p), while JPEGs are ~300KB.
-                saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.70));
-                
-                // Normal flow logic
+                saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.60));
                 remapBtn.style.display = useTemplate ? 'block' : 'none'; 
                 cameraControls.classList.remove('controls-hidden');
-                
-                // Show standard navigation buttons
                 closePreviewBtn.style.display = 'none'; 
                 homeBtn.style.display = 'inline-flex';
                 retakeBtn.style.display = 'inline-flex'; 
@@ -2708,43 +2475,56 @@
                 return hitIndex;
             }
             mergeCanvas.addEventListener('mousemove', (e) => { const hit = getPreviewCursorState(e); mergeCanvas.style.cursor = (hit !== -1) ? 'pointer' : 'default'; });
-            mergeCanvas.addEventListener('click', (e) => { const hitIndex = getPreviewCursorState(e); if (hitIndex !== -1) { pendingRetakeIndex = hitIndex; confirmMsg.textContent = `Retake Photo ${hitIndex + 1}?`; confirmModal.style.display = 'flex'; } });
-            confirmYes.onclick = () => { confirmModal.style.display = 'none'; if (pendingRetakeIndex !== null) { retakeIndex = pendingRetakeIndex; showView('camera'); startCamera(); } };
-            confirmNo.onclick = () => { confirmModal.style.display = 'none'; };
+            
+            mergeCanvas.addEventListener('click', (e) => { 
+                const hitIndex = getPreviewCursorState(e); 
+                if (hitIndex !== -1) { 
+                    confirmMsg.textContent = `Retake Photo ${hitIndex + 1}?`; 
+                    confirmModal.style.display = 'flex'; 
+                    onConfirmAction = () => {
+                        retakeIndex = hitIndex; 
+                        showView('camera'); 
+                        startCamera();
+                    };
+                } 
+            });
+
+            confirmYes.onclick = () => { 
+                confirmModal.style.display = 'none'; 
+                if (onConfirmAction) {
+                    onConfirmAction(); 
+                    onConfirmAction = null; 
+                }
+            };
+            
+            confirmNo.onclick = () => { 
+                confirmModal.style.display = 'none'; 
+                onConfirmAction = null; 
+            };
 
             retakeBtn.addEventListener('click', () => { retakeIndex = null; showView('camera'); startCamera(); });
             remapBtn.addEventListener('click', () => { if (useTemplate) { showView('mapping'); setupMappingView(); } });
             
-            // NEW: Home Button Logic
             homeBtn.addEventListener('click', () => {
-                // Clear session data
                 capturedPhotos = [];
                 photoCount = 0;
                 retakeIndex = null;
                 showView('template');
             });
 
-            // UPDATED: Save Button with Notification
             saveBtn.addEventListener('click', () => { 
                 const link = document.createElement('a'); 
-                // Add timestamp to filename to prevent overwriting
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
                 link.download = `photobooth_pro_${timestamp}.png`; 
                 const imageData = mergeCanvas.toDataURL('image/png');
                 link.href = imageData; 
                 link.click(); 
 
-                // Show new notification with thumbnail
                 showNotification("Saved!", imageData);
             });
             
-            // FIX: Ensure Home Screen is restored behind the gallery when returning
             closePreviewBtn.addEventListener('click', () => { 
-                // 1. Always go back to the Template (Home) view first
-                // This ensures the background is not empty/black when the modal opens
                 showView('template'); 
-
-                // 2. If we came from the gallery, re-open the gallery modal on top
                 if (returnToGallery) {
                     galleryModal.style.display = 'flex'; 
                     returnToGallery = false; 
@@ -2756,13 +2536,9 @@
             resetMappingBtn.addEventListener('click', () => { photoSlots = []; setupMappingView(); });
             startMappedBtn.addEventListener('click', () => { if (photoSlots.length === numPhotosToTake) { saveState(); showView('camera'); startCamera(); } });
             
-            // Print Logic (Direct Print via Iframe)
             printBtn.addEventListener('click', () => {
-                // Remove old frame if exists
                 const oldFrame = document.getElementById('print-iframe');
                 if (oldFrame) document.body.removeChild(oldFrame);
-
-                // Create hidden iframe
                 const iframe = document.createElement('iframe');
                 iframe.id = 'print-iframe';
                 iframe.style.position = 'fixed';
@@ -2777,7 +2553,6 @@
                 let imgData;
 
                 if (isStrip) {
-                    // Logic for 2x6 strips on 4x6 paper
                     const pCanvas = document.createElement('canvas');
                     pCanvas.width = mergeCanvas.width * 2 + 100; // Add gap
                     pCanvas.height = mergeCanvas.height;
@@ -2811,20 +2586,15 @@
                 doc.close();
             });
 
-            checkSession(); // Check login status immediately
+            checkSession(); 
             enumerateCameras(); 
             window.addEventListener('resize', () => { if (views.mapping.style.display === 'flex' && templateImage.src) setupMappingView(); if (views.camera.style.display === 'flex') updateCameraCropVisual(); });
             
-            // FIX: Remove the entry animation class once it finishes.
-            // This prevents the "slide up" animation from re-playing every time 
-            // the error shake class is removed.
             setTimeout(() => {
                 const lc = document.getElementById('login-card');
                 if(lc) lc.classList.remove('initial-slide');
-            }, 800); // Wait slightly longer than the 0.6s animation
+            }, 800); 
         });
     </script>
 </body>
 </html>
-
-
