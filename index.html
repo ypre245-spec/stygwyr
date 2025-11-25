@@ -580,7 +580,7 @@
         <img id="toast-thumb" class="toast-thumb" alt="" />
         <svg id="toast-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <span id="notification-text">Saved to Device</span>
-        <!-- REMOVED: View Button -->
+        <span id="toast-view-btn" class="toast-action">View</span>
         <span id="toast-undo-btn" class="toast-undo" style="display:none;">UNDO</span>
     </div>
 
@@ -647,16 +647,6 @@
                     <option value="6">6 Photos</option>
                     <option value="8">8 Photos</option>
                 </select>
-            </div>
-
-            <!-- NEW: Save Directory Selector -->
-            <div class="modal-row" style="flex-direction:column; align-items:flex-start; margin-top: 10px; border-top: 1px solid #444; padding-top: 10px; width: 100%;">
-                <label style="margin-bottom:5px; color:#aaa; font-size:0.9em;">Storage Location</label>
-                <div style="display:flex; gap:10px; width:100%; align-items:center;">
-                    <button id="choose-dir-btn" class="btn" style="background:#333; font-size:0.85em; flex:1;">📂 Select Folder</button>
-                    <div id="dir-status" style="font-size:0.8em; color:#888; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Browser Default</div>
-                </div>
-                <div style="font-size:0.75em; color:#555; margin-top:4px;">*Requires Chrome/Edge. Falls back to Downloads folder.</div>
             </div>
 
             <!-- NEW: Analytics Dashboard -->
@@ -1154,11 +1144,6 @@
             const closeSettingsBtn = document.getElementById('close-settings-btn');
             const driverModeSelect = document.getElementById('driver-mode-select');
             
-            // Directory Picking Elements
-            const chooseDirBtn = document.getElementById('choose-dir-btn');
-            const dirStatus = document.getElementById('dir-status');
-            let saveDirectoryHandle = null;
-
             // Stats Elements
             const resetStatsBtn = document.getElementById('reset-stats-btn');
 
@@ -1247,7 +1232,7 @@
             const notificationText = document.getElementById('notification-text');
             const toastThumb = document.getElementById('toast-thumb');
             const toastIcon = document.getElementById('toast-icon');
-            // REMOVED: const toastViewBtn
+            const toastViewBtn = document.getElementById('toast-view-btn');
             const toastUndoBtn = document.getElementById('toast-undo-btn');
 
             const confirmModal = document.getElementById('confirm-modal');
@@ -1688,28 +1673,6 @@
                 }
             });
             
-            // NEW: Directory Picker Logic
-            if ('showDirectoryPicker' in window) {
-                chooseDirBtn.addEventListener('click', async () => {
-                    try {
-                        saveDirectoryHandle = await window.showDirectoryPicker();
-                        dirStatus.textContent = `📂 ${saveDirectoryHandle.name}`;
-                        dirStatus.style.color = '#4cd964';
-                        showNotification("Folder Selected");
-                    } catch (err) {
-                        console.log("Directory pick cancelled or failed", err);
-                        if (!saveDirectoryHandle) {
-                            dirStatus.textContent = "Browser Default";
-                            dirStatus.style.color = "#888";
-                        }
-                    }
-                });
-            } else {
-                chooseDirBtn.disabled = true;
-                chooseDirBtn.textContent = "Not Supported";
-                dirStatus.textContent = "Browser Default Only";
-            }
-
             galleryBtn.addEventListener('click', () => galleryModal.style.display = 'flex');
             closeGalleryBtn.addEventListener('click', () => galleryModal.style.display = 'none');
             galleryCloseBtnFooter.addEventListener('click', () => galleryModal.style.display = 'none');
@@ -1872,17 +1835,17 @@
                 
                 if (type === 'error' || type === true) { 
                     notificationToast.classList.add('error');
-                    // REMOVED: toastViewBtn logic
+                    toastViewBtn.style.display = 'none';
                     toastUndoBtn.style.display = 'none';
                 } else {
                     notificationToast.classList.remove('error');
                     
                     if (type === 'undo') {
-                        // REMOVED: toastViewBtn logic
+                        toastViewBtn.style.display = 'none';
                         toastUndoBtn.style.display = 'block';
                         toastUndoBtn.onclick = undoLastDelete;
                     } else {
-                        // REMOVED: toastViewBtn logic
+                        toastViewBtn.style.display = 'block';
                         toastUndoBtn.style.display = 'none';
                     }
                 }
@@ -1900,7 +1863,11 @@
                 setTimeout(() => { notificationToast.classList.remove('show'); }, 4000);
             }
 
-            // REMOVED: toastViewBtn event listener
+            toastViewBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                notificationToast.classList.remove('show'); 
+                galleryModal.style.display = 'flex'; 
+            });
 
             function showView(viewName) {
                 Object.values(views).forEach(v => v.style.display = 'none');
@@ -2582,8 +2549,7 @@
             }
             
             function finalizeDraw() {
-                // If directory is set, save automatically? No, wait for user click on Save btn
-                // But we can check here if we want auto-save
+                saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.60));
                 
                 // Stats: Update Sessions Completed
                 stats.sessions++;
@@ -2665,55 +2631,15 @@
                 showView('template');
             });
 
-            // UPDATED: Save Button with File System Access API support
-            saveBtn.addEventListener('click', async () => { 
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                const filename = `photobooth_pro_${timestamp}.png`;
-                const imageData = mergeCanvas.toDataURL('image/png');
-
-                // 1. Check if Custom Directory is Set
-                if (saveDirectoryHandle) {
-                    try {
-                        showNotification("Saving to Folder...", null, false); 
-                        
-                        // NEW: Explicit Permission Check
-                        // Browsers often require re-verifying permission on every write if not persisted
-                        const opts = { mode: 'readwrite' };
-                        if ((await saveDirectoryHandle.queryPermission(opts)) !== 'granted') {
-                            if ((await saveDirectoryHandle.requestPermission(opts)) !== 'granted') {
-                                throw new Error("Permission denied by user");
-                            }
-                        }
-
-                        // Create Blob from DataURL
-                        const response = await fetch(imageData);
-                        const blob = await response.blob();
-
-                        // Create file handle in the chosen directory
-                        const fileHandle = await saveDirectoryHandle.getFileHandle(filename, { create: true });
-                        const writable = await fileHandle.createWritable();
-                        
-                        // Write the file
-                        await writable.write(blob);
-                        await writable.close();
-
-                        showNotification("Saved to Folder!", imageData);
-                    } catch (err) {
-                        console.error("File System Save Failed", err);
-                        // CHANGED: Explicit error instead of silent fallback
-                        showNotification("Folder Save Failed", null, true);
-                        alert("Error: Could not write to the selected folder.\n\nBrowser security may have revoked permission. Please go to Settings and select the folder again.");
-                    }
-                    return; // CRITICAL: Stop here. Do not execute the fallback code below.
-                }
-
-                // 2. Default Browser Download (Fallback if no folder selected)
+            saveBtn.addEventListener('click', () => { 
                 const link = document.createElement('a'); 
-                link.download = filename; 
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                link.download = `photobooth_pro_${timestamp}.png`; 
+                const imageData = mergeCanvas.toDataURL('image/png');
                 link.href = imageData; 
                 link.click(); 
 
-                showNotification("Saved to Downloads!", imageData);
+                showNotification("Saved!", imageData);
             });
             
             closePreviewBtn.addEventListener('click', () => { 
@@ -2730,6 +2656,7 @@
             startMappedBtn.addEventListener('click', () => { if (photoSlots.length === numPhotosToTake) { saveState(); showView('camera'); startCamera(); } });
             
             printBtn.addEventListener('click', () => {
+                // Stats: Update Prints
                 stats.prints++;
                 saveStats();
 
@@ -2750,7 +2677,7 @@
 
                 if (isStrip) {
                     const pCanvas = document.createElement('canvas');
-                    pCanvas.width = mergeCanvas.width * 2 + 100; 
+                    pCanvas.width = mergeCanvas.width * 2 + 100; // Add gap
                     pCanvas.height = mergeCanvas.height;
                     const pCtx = pCanvas.getContext('2d');
                     pCtx.fillStyle = 'white'; pCtx.fillRect(0,0,pCanvas.width,pCanvas.height);
