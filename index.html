@@ -580,7 +580,7 @@
         <img id="toast-thumb" class="toast-thumb" alt="" />
         <svg id="toast-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <span id="notification-text">Saved to Device</span>
-        <span id="toast-view-btn" class="toast-action">View</span>
+        <!-- REMOVED: View Button -->
         <span id="toast-undo-btn" class="toast-undo" style="display:none;">UNDO</span>
     </div>
 
@@ -1247,7 +1247,7 @@
             const notificationText = document.getElementById('notification-text');
             const toastThumb = document.getElementById('toast-thumb');
             const toastIcon = document.getElementById('toast-icon');
-            const toastViewBtn = document.getElementById('toast-view-btn');
+            // REMOVED: const toastViewBtn
             const toastUndoBtn = document.getElementById('toast-undo-btn');
 
             const confirmModal = document.getElementById('confirm-modal');
@@ -1872,17 +1872,17 @@
                 
                 if (type === 'error' || type === true) { 
                     notificationToast.classList.add('error');
-                    toastViewBtn.style.display = 'none';
+                    // REMOVED: toastViewBtn logic
                     toastUndoBtn.style.display = 'none';
                 } else {
                     notificationToast.classList.remove('error');
                     
                     if (type === 'undo') {
-                        toastViewBtn.style.display = 'none';
+                        // REMOVED: toastViewBtn logic
                         toastUndoBtn.style.display = 'block';
                         toastUndoBtn.onclick = undoLastDelete;
                     } else {
-                        toastViewBtn.style.display = 'block';
+                        // REMOVED: toastViewBtn logic
                         toastUndoBtn.style.display = 'none';
                     }
                 }
@@ -1900,11 +1900,7 @@
                 setTimeout(() => { notificationToast.classList.remove('show'); }, 4000);
             }
 
-            toastViewBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); 
-                notificationToast.classList.remove('show'); 
-                galleryModal.style.display = 'flex'; 
-            });
+            // REMOVED: toastViewBtn event listener
 
             function showView(viewName) {
                 Object.values(views).forEach(v => v.style.display = 'none');
@@ -2678,8 +2674,17 @@
                 // 1. Check if Custom Directory is Set
                 if (saveDirectoryHandle) {
                     try {
-                        showNotification("Saving...", null, false); 
+                        showNotification("Saving to Folder...", null, false); 
                         
+                        // NEW: Explicit Permission Check
+                        // Browsers often require re-verifying permission on every write if not persisted
+                        const opts = { mode: 'readwrite' };
+                        if ((await saveDirectoryHandle.queryPermission(opts)) !== 'granted') {
+                            if ((await saveDirectoryHandle.requestPermission(opts)) !== 'granted') {
+                                throw new Error("Permission denied by user");
+                            }
+                        }
+
                         // Create Blob from DataURL
                         const response = await fetch(imageData);
                         const blob = await response.blob();
@@ -2688,18 +2693,21 @@
                         const fileHandle = await saveDirectoryHandle.getFileHandle(filename, { create: true });
                         const writable = await fileHandle.createWritable();
                         
+                        // Write the file
                         await writable.write(blob);
                         await writable.close();
 
                         showNotification("Saved to Folder!", imageData);
-                        return; // Exit, don't do default download
                     } catch (err) {
                         console.error("File System Save Failed", err);
+                        // CHANGED: Explicit error instead of silent fallback
                         showNotification("Folder Save Failed", null, true);
+                        alert("Error: Could not write to the selected folder.\n\nBrowser security may have revoked permission. Please go to Settings and select the folder again.");
                     }
+                    return; // CRITICAL: Stop here. Do not execute the fallback code below.
                 }
 
-                // 2. Default Browser Download (Fallback)
+                // 2. Default Browser Download (Fallback if no folder selected)
                 const link = document.createElement('a'); 
                 link.download = filename; 
                 link.href = imageData; 
