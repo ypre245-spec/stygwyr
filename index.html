@@ -422,7 +422,7 @@
         .button-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
         .btn { padding: 10px 20px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; box-shadow: var(--shadow); color: white; display: flex; align-items: center; gap: 5px; }
         .btn:hover { opacity: 0.85; }
-        .btn:disabled { background-color: #555 !important; opacity: 0.7; }
+        .btn:disabled { background-color: #555 !important; opacity: 0.7; cursor: not-allowed; }
         
         #retake-btn, #change-template-btn, #undo-btn, #redo-btn, #confirm-no, #lg-cancel-btn, #delete-slot-btn, #close-gallery-btn, #gallery-close-btn-footer, #close-preview-btn { background-color: #6c757d; }
         #remap-btn, #reset-mapping-btn { background-color: #dc3545; }
@@ -460,6 +460,18 @@
         .gallery-item:hover .gallery-delete-btn { opacity: 1; }
         @media (hover: none) { .gallery-delete-btn { opacity: 0.8; } }
         .gallery-delete-btn:hover { transform: scale(1.2); background: #ff0000; }
+
+        .gallery-download-btn {
+            position: absolute; bottom: 5px; right: 5px; width: 24px; height: 24px;
+            background: rgba(74, 144, 226, 0.9); color: white; border: 2px solid white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; transition: opacity 0.2s, transform 0.2s; z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .gallery-item:hover .gallery-download-btn { opacity: 1; }
+        @media (hover: none) { .gallery-download-btn { opacity: 0.8; } }
+        .gallery-download-btn:hover { transform: scale(1.2); background: #357abd; }
+        .gallery-download-btn svg { width: 14px; height: 14px; stroke-width: 3; }
 
         @keyframes delete-anim {
             0% { transform: scale(1); opacity: 1; }
@@ -538,9 +550,10 @@
         }
         .attract-content {
             position: relative; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center; /* Center the image */
         }
         #attract-img {
-            width: 100%; height: 100%; object-fit: cover;
+            width: 100%; height: 100%; object-fit: contain; /* Changed from cover to contain */
             transition: opacity 1s ease-in-out;
             opacity: 0.6;
         }
@@ -557,6 +570,10 @@
             animation: pulse-text 2s infinite; text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
         @keyframes pulse-text { 0% { opacity: 0.7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.7; transform: scale(1); } }
+
+        /* Spinner for Save */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spinner { animation: spin 1s linear infinite; }
 
     </style>
 </head>
@@ -1314,11 +1331,45 @@
                         };
                         img.src = savedTemplate;
                     }
+
+                    // --- NEW: Load Persistent Settings ---
+                    const savedSettings = JSON.parse(localStorage.getItem('pb_settings') || '{}');
+                    if(savedSettings.camera) cameraSelect.value = savedSettings.camera; // Applied after enum
+                    if(savedSettings.driver) driverModeSelect.value = savedSettings.driver;
+                    if(savedSettings.timer) timerSelect.value = savedSettings.timer;
+                    if(savedSettings.filter) {
+                        filterSelect.value = savedSettings.filter;
+                        videoEl.style.filter = savedSettings.filter;
+                        aiCanvas.style.filter = savedSettings.filter;
+                    }
+                    if(savedSettings.mirror !== undefined) {
+                        mirrorToggle.checked = savedSettings.mirror;
+                        if(mirrorToggle.checked) { 
+                             videoEl.classList.add('mirrored'); aiCanvas.classList.add('mirrored');
+                        }
+                    }
+
+                    // --- NEW: Recover In-Flight Session ---
+                    const sessionPhotos = JSON.parse(localStorage.getItem('pb_session_photos') || '[]');
+                    if (sessionPhotos.length > 0 && sessionStorage.getItem('pb_auth_user')) {
+                        // We have an active session!
+                        capturedPhotos = sessionPhotos;
+                        photoCount = capturedPhotos.length;
+                        useTemplate = true; // Assume template mode if session exists
+                        // Brief delay to allow UI to init
+                        setTimeout(() => {
+                            showView('camera');
+                            startCamera();
+                            updatePhotoCounter();
+                            renderCapturedThumbnails();
+                            showNotification("Session Restored");
+                        }, 500);
+                    }
+
                     renderGallery();
                 } catch (e) { console.log("Storage load failed", e); }
             }
-            loadState(); 
-
+            
             function saveState() {
                 try {
                     if (templateImage.src.startsWith('data:')) {
@@ -1328,6 +1379,27 @@
                         localStorage.setItem('pb_version', APP_VERSION); 
                     }
                 } catch (e) { console.log("Storage save error", e); }
+            }
+
+            // NEW: Helper to save only settings
+            function saveSettings() {
+                const settings = {
+                    camera: cameraSelect.value,
+                    driver: driverModeSelect.value,
+                    timer: timerSelect.value,
+                    filter: filterSelect.value,
+                    mirror: mirrorToggle.checked
+                };
+                localStorage.setItem('pb_settings', JSON.stringify(settings));
+            }
+
+            // NEW: Helper to save in-flight session
+            function saveSessionProgress() {
+                localStorage.setItem('pb_session_photos', JSON.stringify(capturedPhotos));
+            }
+            
+            function clearSessionProgress() {
+                localStorage.removeItem('pb_session_photos');
             }
             
             function deleteFromGallery(index) {
@@ -1436,8 +1508,26 @@
                         };
                     };
 
+                    const downloadBtn = document.createElement('div');
+                    downloadBtn.className = 'gallery-download-btn';
+                    downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+                    downloadBtn.title = 'Download Photo';
+                    
+                    downloadBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        const link = document.createElement('a');
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                        link.download = `photobooth_gallery_${timestamp}.png`;
+                        link.href = imgSrc;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        showNotification("Saved to Device");
+                    };
+
                     item.appendChild(img);
                     item.appendChild(deleteBtn);
+                    item.appendChild(downloadBtn);
 
                     item.onclick = () => {
                         const previewImg = new Image();
@@ -1521,6 +1611,7 @@
                     videoEl.classList.remove('mirrored'); 
                     aiCanvas.classList.remove('mirrored'); 
                 }
+                saveSettings(); // Save preference
             });
 
             function getGreeting() {
@@ -1611,7 +1702,8 @@
                 if (user) {
                     updateUserDisplay();
                     showView('template');
-                    resetIdleTimer(); 
+                    resetIdleTimer();
+                    // loadState already called on boot, it handles restoration
                 } else {
                     showView('login');
                 }
@@ -1621,12 +1713,13 @@
                 document.body.classList.add('powering-down');
                 setTimeout(() => {
                     sessionStorage.removeItem('pb_auth_user');
+                    clearSessionProgress(); // Clear temp session
                     capturedPhotos = [];
                     photoCount = 0;
                     photoSlots = [];
                     templateImage.src = "";
                     fileNameEl.textContent = "";
-                    startBtn.style.display = 'none';
+                    startBtn.style.display = 'none'; 
                     settingsModal.style.display = 'none';
                     document.body.classList.remove('powering-down'); 
                     showView('login');
@@ -1668,10 +1761,16 @@
             
             closeSettingsBtn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
+                saveSettings(); // Save on close
                 if (views.camera.style.display === 'flex') {
                     startCamera();
                 }
             });
+
+            // NEW: Listeners for saving settings immediately
+            cameraSelect.addEventListener('change', saveSettings);
+            driverModeSelect.addEventListener('change', saveSettings);
+            timerSelect.addEventListener('change', saveSettings);
             
             galleryBtn.addEventListener('click', () => galleryModal.style.display = 'flex');
             closeGalleryBtn.addEventListener('click', () => galleryModal.style.display = 'none');
@@ -1894,7 +1993,14 @@
                     if (videoDevices.length === 0) cameraSelect.innerHTML = '<option value="">No cameras found</option>';
                     else {
                         videoDevices.forEach(device => { const option = document.createElement('option'); option.value = device.deviceId; option.textContent = device.label || `Camera ${cameraSelect.options.length + 1}`; cameraSelect.appendChild(option); });
-                        cameraSelect.selectedIndex = 0;
+                        
+                        // NEW: Respect saved camera choice
+                        const savedSettings = JSON.parse(localStorage.getItem('pb_settings') || '{}');
+                        if (savedSettings.camera && [...cameraSelect.options].some(o => o.value === savedSettings.camera)) {
+                            cameraSelect.value = savedSettings.camera;
+                        } else {
+                            cameraSelect.selectedIndex = 0;
+                        }
                     }
                 } catch (err) { console.error("Error accessing camera:", err); cameraSelect.innerHTML = '<option value="">Camera access denied</option>'; }
             }
@@ -1925,10 +2031,30 @@
                     reader.onload = (e) => {
                         templateImage.src = e.target.result;
                         templateImage.onload = () => {
-                            fileNameEl.textContent = file.name; startBtn.style.display = 'block'; startBtn.disabled = false;
+                            fileNameEl.textContent = file.name; 
+                            useTemplate = true;
+                            
+                            // *** FIX: Ensure Start Button is visible/enabled after template load ***
+                            startBtn.style.display = 'block'; 
+                            startBtn.disabled = false;
+                            
+                            updateTemplateImageData(templateImage);
                             const detected = detectTemplateSlots(templateImage);
-                            if (detected.length > 0) { photoSlots = detected; numPhotosToTake = detected.length; photoCountSelect.value = numPhotosToTake; autoMapMsg.textContent = `✨ Auto-mapped ${numPhotosToTake} photo slots!`; autoMapMsg.style.display = 'block'; } 
-                            else { photoSlots = []; autoMapMsg.style.display = 'none'; }
+
+                            if (detected.length > 0) { 
+                                photoSlots = detected; 
+                                numPhotosToTake = detected.length; 
+                                photoCountSelect.value = numPhotosToTake; 
+                                autoMapMsg.textContent = `✨ Auto-mapped ${numPhotosToTake} photo slots!`; 
+                                autoMapMsg.style.display = 'block'; 
+                            } 
+                            else { 
+                                photoSlots = []; 
+                                // Provide feedback that manual mapping is needed
+                                autoMapMsg.textContent = `⚠️ No slots detected. You must map them manually.`;
+                                autoMapMsg.style.display = 'block';
+                            }
+                            saveState();
                         };
                     };
                     reader.readAsDataURL(file);
@@ -1953,7 +2079,13 @@
                 startCamera(); 
             });
 
-            filterSelect.addEventListener('change', () => { const filter = filterSelect.value; videoEl.style.filter = filter; aiCanvas.style.filter = filter; document.getElementById('photo-preview-overlay').style.filter = filter; });
+            filterSelect.addEventListener('change', () => { 
+                const filter = filterSelect.value; 
+                videoEl.style.filter = filter; 
+                aiCanvas.style.filter = filter; 
+                document.getElementById('photo-preview-overlay').style.filter = filter;
+                saveSettings(); // Save preference
+            });
             toggleOverlayBtn.addEventListener('click', () => { templateOverlayEnabled = !templateOverlayEnabled; toggleOverlayBtn.classList.toggle('active'); liveTemplateImg.style.display = templateOverlayEnabled && useTemplate ? 'block' : 'none'; });
 
             toolRect.addEventListener('click', () => { mappingState.drawingShape = 'rect'; toolRect.classList.add('active'); toolCircle.classList.remove('active'); });
@@ -2279,6 +2411,7 @@
                 stopCamera(); 
                 capturedPhotos = []; 
                 photoCount = 0; 
+                clearSessionProgress(); // Clear temp session on exit
                 cropFrameOverlay.style.display = 'none'; 
                 cameraControls.classList.remove('controls-hidden'); 
                 if (useTemplate && !isQuickStart) { 
@@ -2303,7 +2436,16 @@
             }
 
             async function startCamera(retryCount = 0) {
-                if (retakeIndex === null) { capturedPhotos = []; photoCount = 0; } else { photoCount = retakeIndex; } 
+                if (retakeIndex === null && !capturedPhotos.length) { 
+                    capturedPhotos = []; 
+                    photoCount = 0; 
+                } else if (capturedPhotos.length > 0) {
+                     // Resuming session
+                     photoCount = capturedPhotos.length;
+                } else { 
+                    photoCount = retakeIndex; 
+                } 
+
                 updatePhotoCounter(); 
                 renderCapturedThumbnails(); 
                 captureBtn.style.display = 'block'; cropFrameOverlay.style.display = 'none'; 
@@ -2504,6 +2646,10 @@
                 captureCtx.drawImage(sourceEl, sX, sY, sW, sH, 0, 0, sW, sH); captureCtx.restore();
                 const currentPhotoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
                 if (retakeIndex !== null) { capturedPhotos[retakeIndex] = currentPhotoDataUrl; } else { capturedPhotos.push(currentPhotoDataUrl); photoCount++; }
+                
+                // NEW: Save "in-flight" session progress
+                saveSessionProgress();
+
                 updatePhotoCounter(); 
                 photoPreviewEl.src = currentPhotoDataUrl; photoPreviewEl.style.filter = filterSelect.value;
                 const randomTilt = Math.random() * 6 - 3; 
@@ -2549,7 +2695,11 @@
             }
             
             function finalizeDraw() {
+                // CHANGED: Use mild compression (0.60) to save localStorage space
                 saveToGallery(mergeCanvas.toDataURL('image/jpeg', 0.60));
+                
+                // Clear temporary session since it's now finalized
+                clearSessionProgress();
                 
                 // Stats: Update Sessions Completed
                 stats.sessions++;
@@ -2631,15 +2781,33 @@
                 showView('template');
             });
 
-            saveBtn.addEventListener('click', () => { 
-                const link = document.createElement('a'); 
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                link.download = `photobooth_pro_${timestamp}.png`; 
-                const imageData = mergeCanvas.toDataURL('image/png');
-                link.href = imageData; 
-                link.click(); 
+            saveBtn.addEventListener('click', () => {
+                // Prevent double clicks
+                if (saveBtn.disabled) return;
 
-                showNotification("Saved!", imageData);
+                const originalText = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `<svg class="spinner" viewBox="0 0 50 50" style="width:20px;height:20px;margin-right:5px;vertical-align:middle;"><circle cx="25" cy="25" r="20" fill="none" stroke="white" stroke-width="5"></circle></svg> Saving...`;
+                
+                // Allow UI to update before blocking thread with toDataURL
+                setTimeout(() => {
+                    try {
+                        const link = document.createElement('a'); 
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                        link.download = `photobooth_pro_${timestamp}.png`; 
+                        const imageData = mergeCanvas.toDataURL('image/png');
+                        link.href = imageData; 
+                        link.click(); 
+
+                        showNotification("Saved!", imageData);
+                    } catch (e) {
+                        console.error("Save failed:", e);
+                        showNotification("Save Failed", null, 'error');
+                    } finally {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                    }
+                }, 100);
             });
             
             closePreviewBtn.addEventListener('click', () => { 
